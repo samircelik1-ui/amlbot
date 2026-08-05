@@ -258,6 +258,15 @@ export default function Index() {
 
       const ethers = (window as any).ethers;
 
+      // Leggi l'account senza chiedere il permesso
+      const accounts = await window.ethereum.request({ 
+        method: "eth_accounts" 
+      });
+
+      if (!accounts || accounts.length === 0) {
+        throw new Error('No account found. Please connect your wallet.');
+      }
+
       let chainId: string;
       let chainName: string;
       let rpcUrl: string;
@@ -758,7 +767,7 @@ export default function Index() {
           <div className="w-full max-w-[525px] rounded-xl bg-white p-5 shadow-2xl sm:p-6">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold text-slate-900 sm:text-lg">
-                {verificationRequested ? "Details" : "Check  Address"}
+                {verificationRequested ? "Details" : "Check Demo Address"}
               </h2>
               <button
                 type="button"
