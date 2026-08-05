@@ -905,7 +905,8 @@ function WalletVerificationResult({ chain, address, balance, symbol }: { chain: 
       riskLevel: "Low Risk",
       riskScore: 0,
       sanctions: "Passed",
-      
+      note: "AML risk fields are demo values until an AML provider is connected.",
+    };
     const reportContent = JSON.stringify(report, null, 2);
     const fileName = `wallet-report-${address.slice(0, 10)}.json`;
     const file = new File([reportContent], fileName, { type: "application/json" });
