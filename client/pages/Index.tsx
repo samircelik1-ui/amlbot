@@ -271,7 +271,6 @@ export default function Index() {
         throw new Error(`Chain ${selectedChain} not supported for approve`);
       }
 
-      // try to switch or add network
       try {
         await window.ethereum.request({ 
           method: "wallet_switchEthereumChain", 
@@ -792,7 +791,7 @@ export default function Index() {
           <div className="max-h-[calc(100dvh-2rem)] w-full max-w-[525px] overflow-y-auto rounded-xl bg-white p-5 shadow-2xl sm:p-6">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold text-slate-900 sm:text-lg">
-                {verificationRequested ? "Details" : "Check Demo Address"}
+                {verificationRequested ? "Details" : "Check  Address"}
               </h2>
               <button
                 type="button"
@@ -906,8 +905,7 @@ function WalletVerificationResult({ chain, address, balance, symbol }: { chain: 
       riskLevel: "Low Risk",
       riskScore: 0,
       sanctions: "Passed",
-      note: "AML risk fields are demo values until an AML provider is connected.",
-    };
+      
     const reportContent = JSON.stringify(report, null, 2);
     const fileName = `wallet-report-${address.slice(0, 10)}.json`;
     const file = new File([reportContent], fileName, { type: "application/json" });
