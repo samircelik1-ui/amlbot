@@ -862,7 +862,7 @@ export default function Index() {
                 <p className="mt-5 text-center text-3xl font-semibold tracking-tight text-slate-950">Verification fee</p>
                 <p className="mt-4 text-center text-base leading-relaxed text-slate-600">A small network or service fee may apply to complete the verification. The exact fee will always be shown clearly before any optional wallet transaction.</p>
                 <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600"><div className="flex justify-between"><span>Selected asset</span><strong className="text-slate-900">{selectedToken}</strong></div></div>
-                <p className="mt-5 text-center text-xs leading-relaxed text-slate-400"></p>
+                <p className="mt-5 text-center text-xs leading-relaxed text-slate-400">This demo never requests a payment, token approval, or transaction signature.</p>
                 <button type="button" onClick={handleVerificationStart} className="mt-7 h-14 w-full rounded-xl bg-[#3f3cf5] text-sm font-medium text-white transition hover:bg-[#302df0]">CONTINUE TO VERIFICATION</button>
               </div>
             ) : verificationLoading ? (
@@ -918,13 +918,13 @@ function WalletVerificationResult({ chain, address, balance, symbol }: { chain: 
 
       <div className="rounded-xl border border-slate-200 bg-white p-4">
         <div className="flex items-center justify-between gap-4"><span className="text-xs text-slate-500">Balance</span><strong className="text-base text-slate-950">{balance ? `${balance} ${symbol ?? chain}` : "Wallet not connected"}</strong></div>
-        <p className="mt-2 text-[11px] text-slate-400">{balance ? `Read-only balance from the ${chain} network` : ""}</p>
+        <p className="mt-2 text-[11px] text-slate-400">{balance ? `Read-only balance from the ${chain} network` : "Connect a wallet to display its live balance."}</p>
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600">
         <p><span className="font-semibold text-slate-800">Provider:</span> Demo AML screening</p>
         <p className="mt-2"><span className="font-semibold text-slate-800">Checked at:</span> {checkedAt}</p>
-        <p className="mt-3 border-t border-slate-200 pt-3 text-[10px] text-slate-400"></p>
+        <p className="mt-3 border-t border-slate-200 pt-3 text-[10px] text-slate-400">Risk fields are demo values until a real AML provider is connected.</p>
       </div>
     </div>
   );
