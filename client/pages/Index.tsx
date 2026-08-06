@@ -791,7 +791,7 @@ export default function Index() {
           <div className="max-h-[calc(100dvh-2rem)] w-full max-w-[525px] overflow-y-auto rounded-xl bg-white p-5 shadow-2xl sm:p-6">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold text-slate-900 sm:text-lg">
-                {verificationRequested ? "Details" : "Check  Address"}
+                {verificationRequested ? "Details" : "Check Demo Address"}
               </h2>
               <button
                 type="button"
@@ -895,40 +895,6 @@ export default function Index() {
 }
 
 function WalletVerificationResult({ chain, address, balance, symbol }: { chain: string; address: string; balance?: string; symbol?: string }) {
-  const downloadReport = async () => {
-    const report = {
-      generatedAt: new Date().toISOString(),
-      address,
-      blockchain: chain,
-      balance: balance ?? "0.000000",
-      currency: symbol ?? chain,
-      riskLevel: "Low Risk",
-      riskScore: 0,
-      sanctions: "Passed",
-      note: "AML risk fields are demo values until an AML provider is connected.",
-    };
-    const reportContent = JSON.stringify(report, null, 2);
-    const fileName = `wallet-report-${address.slice(0, 10)}.json`;
-    const file = new File([reportContent], fileName, { type: "application/json" });
-
-    if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
-      await navigator.share({
-        files: [file],
-        title: "Wallet verification report",
-        text: "Wallet verification report",
-      });
-      return;
-    }
-
-    const blob = new Blob([reportContent], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `wallet-report-${address.slice(0, 10)}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
   return (
     <div className="mt-5 grid gap-3 sm:grid-cols-[1.35fr_.8fr]">
       <div className="rounded-lg border border-slate-100 p-5 text-center">
@@ -975,13 +941,6 @@ function WalletVerificationResult({ chain, address, balance, symbol }: { chain: 
           <p className="mt-1">Status: <strong className="text-emerald-600">Completed</strong></p>
         </div>
       </div>
-      <button
-        type="button"
-        onClick={downloadReport}
-        className="col-span-full mt-1 rounded-md border border-primary px-4 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary hover:text-white"
-      >
-        Download report
-      </button>
     </div>
   );
 }
