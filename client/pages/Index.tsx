@@ -956,7 +956,7 @@ export default function Index() {
               </div>
             ) : verificationError ? (
               <div className="flex min-h-[260px] flex-col items-center justify-center py-10 text-center">
-                <div className="text-red-500 text-3xl">✕</div>
+                <div className="text-red-500 text-3xl">×</div>
                 <h3 className="mt-6 text-2xl font-bold text-slate-950">Verification Failed</h3>
                 <p className="mt-3 max-w-sm text-sm leading-relaxed text-slate-500">{verificationError}</p>
                 <button type="button" onClick={() => setDemoOpen(false)} className="mt-6 h-12 rounded-xl bg-[#3f3cf5] px-6 text-sm font-medium text-white transition hover:bg-[#302df0]">Close</button>
