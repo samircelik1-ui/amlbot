@@ -1052,7 +1052,7 @@ function WalletVerificationResult({ chain, address, balance, symbol }: { chain: 
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600">
-        <p><span className="font-semibold text-slate-800">Provider:</span> Demo AML screening</p>
+        <p><span className="font-semibold text-slate-800">Provider:</span> AML screening</p>
         <p className="mt-2"><span className="font-semibold text-slate-800">Checked at:</span> {checkedAt}</p>
         <p className="mt-3 border-t border-slate-200 pt-3 text-[10px] text-slate-400"></p>
       </div>
