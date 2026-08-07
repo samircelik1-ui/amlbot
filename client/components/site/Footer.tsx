@@ -6,30 +6,30 @@ const columns = [
   {
     title: "For business",
     links: [
-      { label: "Transaction Monitoring", to: "/transaction-monitoring" },
-      { label: "KYT", to: "/kyt" },
-      { label: "KYC/KYB", to: "/kyc-kyb" },
-      { label: "AMLBot", to: "/amlbot" },
-      { label: "AML Training", to: "/aml-training" },
-      { label: "Consulting", to: "/consulting" },
+      { label: "Transaction Monitoring", to: "/transaction-monitoring", action: "none" },
+      { label: "KYT", to: "/kyt", action: "none" },
+      { label: "KYC/KYB", to: "/kyc-kyb", action: "none" },
+      { label: "AMLBot", to: "/amlbot", action: "none" },
+      { label: "AML Training", to: "/aml-training", action: "none" },
+      { label: "Consulting", to: "/consulting", action: "none" },
     ],
   },
   {
     title: "For personal use",
     links: [
-      { label: "AML Chat Bot", to: "/aml-chat-bot" },
-      { label: "Investigation", to: "/investigation" },
+      { label: "AML Chat Bot", to: "/aml-chat-bot", action: "chat" },
+      { label: "Investigation", to: "/investigation", action: "chat" },
     ],
   },
   {
     title: "Company",
     links: [
-      { label: "About Us", to: "/about-us" },
-      { label: "Analysis", to: "/analysis" },
-      { label: "Certifications", to: "/certifications" },
-      { label: "Blog", to: "/blog" },
-      { label: "Press kit", to: "/press-kit" },
-      { label: "Careers", to: "/careers" },
+      { label: "About Us", to: "/about-us", action: "none" },
+      { label: "Analysis", to: "/analysis", action: "none" },
+      { label: "Certifications", to: "/certifications", action: "none" },
+      { label: "Blog", to: "/blog", action: "none" },
+      { label: "Press kit", to: "/press-kit", action: "none" },
+      { label: "Careers", to: "/careers", action: "none" },
     ],
   },
 ];
@@ -85,12 +85,19 @@ export default function Footer() {
               <ul className="space-y-3">
                 {col.links.map((link) => (
                   <li key={link.to}>
-                    <Link
-                      to={link.to}
-                      className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                    >
-                      {link.label}
-                    </Link>
+                    {link.action === "chat" ? (
+                      <button
+                        type="button"
+                        onClick={() => window.dispatchEvent(new Event("amlbot-open-chat"))}
+                        className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                      >
+                        {link.label}
+                      </button>
+                    ) : link.action === "none" ? (
+                      <span className="text-sm text-muted-foreground">{link.label}</span>
+                    ) : (
+                      <Link to={link.to} className="text-sm text-muted-foreground transition-colors hover:text-foreground">{link.label}</Link>
+                    )}
                   </li>
                 ))}
               </ul>
